@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Songsearch</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background: #f9f9f9;
+      text-align: center;
+    }
+    h1 {
+      color: #109790fd;
+    }
+    input[type="text"] {
+      padding: 0.5rem;
+      width: 60%;
+      max-width: 400px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      margin-left: 10px;
+      background-color: #109790fd;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1dbe73;
+    }
+  </style>
+</head>
+<body>
+  <h1>Songsearch</h1>
+  <input type="text" id="songLink" placeholder="Enter your song link here..." />
+  <button onclick="convert()">Search</button>
+
+  <script>
+    function convert() {
+      const link = document.getElementById('songLink').value.trim();
+      if (!link) {
+        alert("Please enter a link!");
+        return;
+      }
+
+      const url = `http://localhost:3000/convert?link=${encodeURIComponent(link)}&to=spotify`;
+      window.location.href = url;
+    }
+  </script>
+</body>
+</html>
