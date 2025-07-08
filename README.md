@@ -36,4 +36,4 @@ SongSearch is a Node.js web tool that allows users to convert music track links 
 
 ## TODO:
 - Adding support for more platforms, implement new resolvers in `resolvers/` and mappers in `mappers/`, then update the respective `index.js` files.
-- Implement robust input stripping and error handling.# SongSearch
+- Implement robust input stripping and error handling.
