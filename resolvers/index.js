@@ -1,11 +1,16 @@
 import deezerResolver from './deezer.js';
+import spotifyResolver from './spotify.js';
+import detectPlatform from '../utils/platform-detector.js';
 
 export async function resolveMetadata(link) {
-  if (link.includes('deezer.com')) {
-    return await deezerResolver(link);
-  }
+  const platform = detectPlatform(link);
 
-  // Add more here
-  throw new Error('Unsupported link format or platform');
+  switch (platform) {
+    case 'deezer':
+      return await deezerResolver(link);
+    case 'spotify':
+      return await spotifyResolver(link);
+    default:
+      throw new Error('Unsupported link format or platform');
+  }
 }
-// TODO: Add more resolvers for other platforms (Spotify, Tidal, Apple Music, etc.

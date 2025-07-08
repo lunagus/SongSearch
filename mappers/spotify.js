@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { getSpotifyAccessToken } from '../utils.js';
+import { getSpotifyAccessToken } from '../utils/index.js';
 
 export default async function spotifyMapper({ title, artist }) {
   const token = await getSpotifyAccessToken();
