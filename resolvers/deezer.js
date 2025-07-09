@@ -28,7 +28,6 @@ export default async function deezerResolver(inputUrl) {
     },
   }).then(res => res.json());
 
-
   return {
     title: data.title,
     artist: data.artist.name,

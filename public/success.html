@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head><title>Logged In</title></head>
+  <body>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const session = urlParams.get('session');
+      if (session) {
+        localStorage.setItem('spotify_session', session);
+        alert('You are now connected to Spotify!');
+        window.location.href = '/';
+      } else {
+        alert('Login failed.');
+      }
+    </script>
+  </body>
+</html>

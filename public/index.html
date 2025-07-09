@@ -46,25 +46,61 @@
 </head>
 <body>
   <h1>Songsearch</h1>
-  <input type="text" id="songLink" placeholder="Enter a Spotify or Deezer link..." />
+  <a href="/login">
+    <button id="spotifyConnectBtn">Connect to Spotify</button>
+  </a>
+  <br/><br/>
+  <input type="text" id="songLink" placeholder="Enter a Spotify or Deezer track link..." />
   <select id="targetPlatform">
     <option value="deezer">Deezer</option>
     <option value="spotify">Spotify</option>
   </select>
-  <button onclick="convert()">Convert</button>
-
+  <button onclick="convert()">Convert Track</button>
+  <br/><br/>
+  <input type="text" id="playlistLink" placeholder="Enter a Deezer playlist link..." style="width:60%;max-width:400px;" />
+  <button onclick="convertPlaylist()">Convert Playlist to Spotify</button>
+  <br/><br/>
+  <div id="feedback" style="color:#d9534f;font-weight:bold;"></div>
   <script>
+    // Extract session token from URL if present
+    let session = null;
+    if (window.location.search.includes('session=')) {
+      session = new URLSearchParams(window.location.search).get('session');
+      localStorage.setItem('spotify_session', session);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      session = localStorage.getItem('spotify_session');
+    }
+
     function convert() {
       const link = document.getElementById('songLink').value.trim();
       const to = document.getElementById('targetPlatform').value;
-
       if (!link) {
-        alert("Please enter a link!");
+        showFeedback('Please enter a track link!');
         return;
       }
-
       const url = `/convert?link=${encodeURIComponent(link)}&to=${encodeURIComponent(to)}`;
       window.location.href = url;
+    }
+
+    function convertPlaylist() {
+      const link = document.getElementById('playlistLink').value.trim();
+      if (!link) {
+        showFeedback('Please enter a Deezer playlist link!');
+        return;
+      }
+      if (!session) {
+        showFeedback('Please connect to Spotify first!');
+        return;
+      }
+      // Redirect to backend for playlist conversion
+      const url = `/convert-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
+      window.location.href = url;
+    }
+
+    function showFeedback(msg) {
+      document.getElementById('feedback').textContent = msg;
     }
   </script>
 </body>
