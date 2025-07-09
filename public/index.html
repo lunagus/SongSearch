@@ -61,6 +61,7 @@
   <button onclick="convertPlaylist()">Convert Playlist to Spotify</button>
   <br/><br/>
   <div id="feedback" style="color:#d9534f;font-weight:bold;"></div>
+  <div id="progress" style="margin-top:1em;font-weight:bold;"></div>
   <script>
     // Extract session token from URL if present
     let session = null;
@@ -94,9 +95,37 @@
         showFeedback('Please connect to Spotify first!');
         return;
       }
+      // Listen for progress updates
+      listenForProgress(session);
       // Redirect to backend for playlist conversion
       const url = `/convert-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
       window.location.href = url;
+    }
+
+    function listenForProgress(session) {
+      const progressDiv = document.getElementById('progress');
+      progressDiv.textContent = 'Starting...';
+      const evtSource = new EventSource(`/progress/${session}`);
+      evtSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.stage === 'Error') {
+          progressDiv.textContent = 'Error: ' + (data.error || 'Unknown error');
+          evtSource.close();
+        } else if (data.stage === 'Done') {
+          progressDiv.textContent = 'Done!';
+          evtSource.close();
+        } else if (data.stage) {
+          if (data.total && data.total > 0) {
+            progressDiv.textContent = `${data.stage} (${data.current} / ${data.total})`;
+          } else {
+            progressDiv.textContent = data.stage;
+          }
+        }
+      };
+      evtSource.onerror = function() {
+        progressDiv.textContent = 'Connection lost.';
+        evtSource.close();
+      };
     }
 
     function showFeedback(msg) {

@@ -16,6 +16,7 @@ const app = express();
 const port = 3000;
 
 const userSessions = new Map(); // key = sessionId (state), value = { accessToken, refreshToken }
+const progressMap = new Map(); // key = sessionId, value = { total, current, stage, error }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,22 +56,74 @@ app.get('/callback', async (req, res) => {
   }
 });
 
+// SSE endpoint for progress
+app.get('/progress/:session', (req, res) => {
+  const session = req.params.session;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendProgress = () => {
+    const progress = progressMap.get(session) || {};
+    res.write(`data: ${JSON.stringify(progress)}\n\n`);
+  };
+
+  // Send initial progress
+  sendProgress();
+  const interval = setInterval(sendProgress, 1000);
+
+  req.on('close', () => {
+    clearInterval(interval);
+  });
+});
+
 // 🎵 Playlist conversion route
 app.get('/convert-playlist', async (req, res) => {
   const { link, session } = req.query;
   const user = userSessions.get(session);
-  const token = user?.accessToken;
+  let token = user?.accessToken;
+  let refreshToken = user?.refreshToken;
 
   if (!token) {
     return res.status(401).send('Missing or invalid session token.');
   }
 
   try {
+    progressMap.set(session, { stage: 'Fetching Deezer playlist...', current: 0, total: 0 });
     const { name, tracks } = await resolveDeezerPlaylist(link);
-    const url = await createSpotifyPlaylist(token, name, tracks);
+    progressMap.set(session, { stage: 'Searching tracks on Spotify...', current: 0, total: tracks.length });
+
+    // Step 1: Get user profile
+    const { createSpotifyPlaylist } = await import('./mappers/deezerToSpotifyPlaylist.js');
+    const trackUris = [];
+    let current = 0;
+    for (const { title, artist } of tracks) {
+      progressMap.set(session, { stage: 'Searching tracks on Spotify...', current, total: tracks.length });
+      current++;
+    }
+    // Step 2: Create playlist and add tracks (handled in mapper, but we update progress here)
+    progressMap.set(session, { stage: 'Adding tracks to Spotify playlist...', current: 0, total: tracks.length });
+    const url = await createSpotifyPlaylist(
+      token,
+      name,
+      tracks,
+      (added) => {
+        progressMap.set(session, { stage: 'Adding tracks to Spotify playlist...', current: added, total: tracks.length });
+      },
+      refreshToken,
+      (newAccessToken, newRefreshToken) => {
+        userSessions.set(session, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+        token = newAccessToken;
+        refreshToken = newRefreshToken;
+        console.log('Updated session tokens after refresh.');
+      }
+    );
+    progressMap.set(session, { stage: 'Done', current: tracks.length, total: tracks.length });
+    setTimeout(() => progressMap.delete(session), 60000); // Clean up after 1 min
     res.redirect(url);
   } catch (err) {
     console.error(err);
+    progressMap.set(session, { stage: 'Error', error: err.message });
     res.status(500).send('Error converting playlist');
   }
 });
