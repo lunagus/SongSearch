@@ -1,6 +1,6 @@
 import express from 'express';
-import { resolveMetadata } from '../resolvers/index.js';
-import { mapToPlatform } from '../mappers/index.js';
+import { resolveMetadata } from '../resolvers/resolvers.js';
+import { mapToPlatform } from '../mappers/mappers.js';
 
 const router = express.Router();
 

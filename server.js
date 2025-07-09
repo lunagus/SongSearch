@@ -5,10 +5,13 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 
-import convertRouter from './routes/convert.js';
+import convertRouter from './routes/convert-route.js';
 import { getSpotifyLoginUrl, getTokensFromCode } from './utils/spotify-auth.js';
-import resolveDeezerPlaylist from './resolvers/deezer-playlist.js';
-import { createSpotifyPlaylist } from './mappers/deezerToSpotifyPlaylist.js';
+import resolveDeezerPlaylist from './resolvers/deezer-playlist-resolver.js';
+import { createSpotifyPlaylist } from './mappers/deezer-to-spotify-playlist-mapper.js';
+import { getYouTubeLoginUrl, getYouTubeTokensFromCode } from './utils/youtube-auth.js';
+import { convertSpotifyToYouTubePlaylist } from './mappers/spotify-to-youtube-playlist-mapper.js';
+import resolveSpotifyPlaylist from './resolvers/spotify-playlist-resolver.js';
 
 dotenv.config();
 
@@ -56,6 +59,36 @@ app.get('/callback', async (req, res) => {
   }
 });
 
+// YouTube OAuth login
+app.get('/youtube/login', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('youtube_auth_state', state);
+  const url = getYouTubeLoginUrl(state);
+  res.redirect(url);
+});
+
+// YouTube OAuth callback
+app.get('/youtube/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const storedState = req.cookies?.youtube_auth_state;
+
+  if (!state || state !== storedState) {
+    return res.status(400).send('State mismatch');
+  }
+
+  try {
+    const tokens = await getYouTubeTokensFromCode(code);
+    userSessions.set(state, {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+    });
+    res.redirect(`/success.html?youtube_session=${state}`);
+  } catch (err) {
+    console.error('YouTube OAuth error:', err);
+    res.status(500).send('Authentication failed');
+  }
+});
+
 // SSE endpoint for progress
 app.get('/progress/:session', (req, res) => {
   const session = req.params.session;
@@ -94,7 +127,7 @@ app.get('/convert-playlist', async (req, res) => {
     progressMap.set(session, { stage: 'Searching tracks on Spotify...', current: 0, total: tracks.length });
 
     // Step 1: Get user profile
-    const { createSpotifyPlaylist } = await import('./mappers/deezerToSpotifyPlaylist.js');
+    const { createSpotifyPlaylist } = await import('./mappers/deezer-to-spotify-playlist-mapper.js');
     const trackUris = [];
     let current = 0;
     for (const { title, artist } of tracks) {
@@ -125,6 +158,33 @@ app.get('/convert-playlist', async (req, res) => {
     console.error(err);
     progressMap.set(session, { stage: 'Error', error: err.message });
     res.status(500).send('Error converting playlist');
+  }
+});
+
+// Alias route for compatibility
+app.get('/convert-spotify-to-youtube', (req, res) => {
+  res.redirect(307, `/convert-to-youtube?${new URLSearchParams(req.query).toString()}`);
+});
+
+// Convert Spotify playlist to YouTube playlist
+app.get('/convert-to-youtube', async (req, res) => {
+  const { playlistId, ytSession, spToken } = req.query;
+  const sessionData = userSessions.get(ytSession);
+
+  if (!sessionData?.accessToken) {
+    return res.status(401).send('User not authenticated with YouTube');
+  }
+
+  try {
+    const youtubeUrl = await convertSpotifyToYouTubePlaylist(
+      spToken, // Spotify token
+      sessionData.accessToken, // YouTube token
+      playlistId
+    );
+    res.redirect(youtubeUrl);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error converting playlist to YouTube');
   }
 });
 

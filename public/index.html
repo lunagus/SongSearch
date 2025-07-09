@@ -3,107 +3,189 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Songsearch</title>
+  <title>SongSeek</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      background: #f9f9f9;
-      text-align: center;
+      background: #f4f6fb;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 2.5rem 2rem 2rem 2rem;
+      max-width: 420px;
+      width: 100%;
+      margin: 2rem;
     }
     h1 {
-      color: #109790fd;
+      color: #109790;
+      margin-bottom: 0.5em;
+      font-size: 2rem;
+      text-align: center;
     }
-    input[type="text"] {
-      padding: 0.5rem;
-      width: 60%;
-      max-width: 400px;
-      font-size: 1rem;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+    .section {
+      margin-bottom: 2em;
     }
-    select {
-      padding: 0.5rem;
-      font-size: 1rem;
-      margin-left: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+    label {
+      display: block;
+      margin-bottom: 0.5em;
+      font-weight: 500;
+      color: #333;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 0.7em;
+      margin-bottom: 1em;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1em;
+      background: #f9fafb;
+      box-sizing: border-box;
     }
     button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      margin-left: 10px;
-      background-color: #109790fd;
-      color: white;
+      width: 100%;
+      padding: 0.8em;
+      background: #109790;
+      color: #fff;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: 600;
       cursor: pointer;
+      margin-bottom: 0.5em;
+      transition: background 0.2s;
     }
     button:hover {
-      background-color: #1dbe73;
+      background: #1dbe73;
+    }
+    .feedback, .progress {
+      margin: 1em 0 0.5em 0;
+      padding: 0.7em 1em;
+      border-radius: 6px;
+      font-size: 1em;
+      font-weight: 500;
+    }
+    .feedback {
+      background: #ffeaea;
+      color: #b91c1c;
+      border: 1px solid #fca5a5;
+      display: none;
+    }
+    .progress {
+      background: #e0f7ef;
+      color: #047857;
+      border: 1px solid #6ee7b7;
+      display: none;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 2em 0;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 1.2rem 0.5rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Songsearch</h1>
-  <a href="/login">
-    <button id="spotifyConnectBtn">Connect to Spotify</button>
-  </a>
-  <br/><br/>
-  <input type="text" id="songLink" placeholder="Enter a Spotify or Deezer track link..." />
-  <select id="targetPlatform">
-    <option value="deezer">Deezer</option>
-    <option value="spotify">Spotify</option>
-  </select>
-  <button onclick="convert()">Convert Track</button>
-  <br/><br/>
-  <input type="text" id="playlistLink" placeholder="Enter a Deezer playlist link..." style="width:60%;max-width:400px;" />
-  <button onclick="convertPlaylist()">Convert Playlist to Spotify</button>
-  <br/><br/>
-  <div id="feedback" style="color:#d9534f;font-weight:bold;"></div>
-  <div id="progress" style="margin-top:1em;font-weight:bold;"></div>
+  <div class="container">
+    <h1>SongSeek</h1>
+
+    <div class="section">
+      <label for="songLink">Convert Track</label>
+      <input type="text" id="songLink" placeholder="Paste a Spotify, Deezer, or YouTube link..." />
+      <select id="targetPlatform">
+        <option value="deezer">Deezer</option>
+        <option value="spotify">Spotify</option>
+        <option value="ytmusic">YouTube Music</option>
+      </select>
+      <button onclick="convert()">Convert Track</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section">
+      <label for="playlistLink">Convert Deezer Playlist to Spotify</label>
+      <input type="text" id="playlistLink" placeholder="Paste a Deezer playlist link..." />
+      <button onclick="convertPlaylist()">Convert Playlist</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section">
+      <label for="spotifyPlaylistLink">Convert Spotify Playlist to YouTube Music</label>
+      <input type="text" id="spotifyPlaylistLink" placeholder="Paste a Spotify playlist link..." />
+      <button onclick="youtubeLogin()">Login with YouTube</button>
+      <button onclick="convertSpotifyToYouTube()">Convert to YouTube Music</button>
+    </div>
+
+    <div id="feedback" class="feedback"></div>
+    <div id="progress" class="progress"></div>
+  </div>
   <script>
-    // Extract session token from URL if present
-    let session = null;
-    if (window.location.search.includes('session=')) {
-      session = new URLSearchParams(window.location.search).get('session');
-      localStorage.setItem('spotify_session', session);
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      session = localStorage.getItem('spotify_session');
+    let session = localStorage.getItem('spotify_session');
+    let ytSession = localStorage.getItem('yt_session');
+
+    function showFeedback(msg) {
+      const el = document.getElementById('feedback');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideFeedback() {
+      document.getElementById('feedback').style.display = 'none';
+    }
+    function showProgress(msg) {
+      const el = document.getElementById('progress');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideProgress() {
+      document.getElementById('progress').style.display = 'none';
     }
 
     function convert() {
+      hideFeedback(); hideProgress();
       const link = document.getElementById('songLink').value.trim();
       const to = document.getElementById('targetPlatform').value;
-      if (!link) {
-        showFeedback('Please enter a track link!');
-        return;
-      }
-      const url = `/convert?link=${encodeURIComponent(link)}&to=${encodeURIComponent(to)}`;
-      window.location.href = url;
+      if (!link) return showFeedback('Please enter a track link!');
+      window.location.href = `/convert?link=${encodeURIComponent(link)}&to=${encodeURIComponent(to)}`;
     }
 
     function convertPlaylist() {
+      hideFeedback(); hideProgress();
       const link = document.getElementById('playlistLink').value.trim();
-      if (!link) {
-        showFeedback('Please enter a Deezer playlist link!');
-        return;
-      }
-      if (!session) {
-        showFeedback('Please connect to Spotify first!');
-        return;
-      }
-      // Listen for progress updates
+      if (!link) return showFeedback('Please enter a Deezer playlist link!');
+      if (!session) return showFeedback('Please connect to Spotify first!');
       listenForProgress(session);
-      // Redirect to backend for playlist conversion
-      const url = `/convert-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
-      window.location.href = url;
+      window.location.href = `/convert-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
+    }
+
+    function youtubeLogin() {
+      window.location.href = '/youtube/login';
+    }
+    function convertSpotifyToYouTube() {
+      hideFeedback(); hideProgress();
+      const playlistLink = document.getElementById('spotifyPlaylistLink').value.trim();
+      if (!playlistLink) return showFeedback('Please enter a Spotify playlist link!');
+      if (!ytSession) return showFeedback('Please login with YouTube first!');
+      const match = playlistLink.match(/playlist\/([a-zA-Z0-9]+)/);
+      if (!match) return showFeedback('Invalid Spotify playlist link!');
+      const playlistId = match[1];
+      if (!session) return showFeedback('Please connect to Spotify first!');
+      window.location.href = `/convert-spotify-to-youtube?playlistId=${encodeURIComponent(playlistId)}&ytSession=${encodeURIComponent(ytSession)}&spToken=${encodeURIComponent(session)}`;
     }
 
     function listenForProgress(session) {
       const progressDiv = document.getElementById('progress');
+      progressDiv.style.display = 'block';
       progressDiv.textContent = 'Starting...';
       const evtSource = new EventSource(`/progress/${session}`);
       evtSource.onmessage = function(event) {
@@ -126,10 +208,6 @@
         progressDiv.textContent = 'Connection lost.';
         evtSource.close();
       };
-    }
-
-    function showFeedback(msg) {
-      document.getElementById('feedback').textContent = msg;
     }
   </script>
 </body>

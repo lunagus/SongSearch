@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { fetchAllDeezerPlaylistTracks } from '../utils/paginateDeezer.js';
+import { fetchAllDeezerPlaylistTracks } from '../utils/paginate-deezer.js';
 
 export default async function resolveDeezerPlaylist(link) {
   const match = link.match(/deezer\.com\/(?:[a-z]{2}\/)?playlist\/(\d+)/);

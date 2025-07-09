@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { createRateLimitedFetcher } from '../utils/rateLimitedFetch.js';
+import { createRateLimitedFetcher } from '../utils/rate-limited-fetch.js';
 import { getTokensFromRefresh } from '../utils/spotify-auth.js';
 
 const spotifyFetch = createRateLimitedFetcher({ requestsPerSecond: 10 });
@@ -41,7 +41,7 @@ export async function createSpotifyPlaylist(token, name, tracks, progressCb, ref
         },
         body: JSON.stringify({
           name: `🎵 ${name}`,
-          description: 'Converted from Deezer using SongSearch',
+          description: 'Converted from Deezer using SongSeek',
           public: false,
         }),
       }),
