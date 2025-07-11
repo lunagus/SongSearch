@@ -176,18 +176,30 @@
     <hr class="divider">
 
     <div class="section">
-      <label for="playlistLink">Convert Deezer Playlist to Spotify</label>
-      <input type="text" id="playlistLink" placeholder="Paste a Deezer playlist link..." />
-      <button onclick="convertPlaylist()">Convert Playlist</button>
-    </div>
-
-    <hr class="divider">
-
-    <div class="section">
-      <label for="spotifyPlaylistLink">Convert Spotify Playlist to YouTube Music</label>
-      <input type="text" id="spotifyPlaylistLink" placeholder="Paste a Spotify playlist link..." />
-      <button onclick="youtubeLogin()">Login with YouTube</button>
-      <button onclick="convertSpotifyToYouTube()">Convert to YouTube Music</button>
+      <label for="universalPlaylistLink">Convert Playlist</label>
+      <div style="display: flex; gap: 0.5em; align-items: stretch; margin-bottom: 1em;">
+        <input type="text" id="universalPlaylistLink" placeholder="Paste a Spotify, Deezer, or YouTube playlist link..." style="flex: 1;" />
+        <button type="button" class="paste-btn" onclick="pasteUniversalPlaylistLink()" aria-label="Paste">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 22px; height: 22px; display: block;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75A2.25 2.25 0 0014.25 4.5h-4.5A2.25 2.25 0 007.5 6.75v3.75m9 0V17.25A2.25 2.25 0 0114.25 19.5h-4.5A2.25 2.25 0 017.5 17.25V10.5m9 0h-9" />
+          </svg>
+        </button>
+      </div>
+      <div style="display: flex; gap: 0.5em; margin-bottom: 1em;">
+        <button id="spotifyLoginBtn" type="button" onclick="spotifyLogin()">Login with Spotify</button>
+        <span id="spotifyStatus" style="align-self: center; font-size: 0.95em;"></span>
+        <button id="youtubeLoginBtn" type="button" onclick="youtubeLogin()">Login with YouTube</button>
+        <span id="youtubeStatus" style="align-self: center; font-size: 0.95em;"></span>
+      </div>
+      <div class="to-select">
+        <label for="universalTargetPlatform">Convert to</label>
+        <select id="universalTargetPlatform">
+          <option value="spotify">Spotify</option>
+          <option value="ytmusic">YouTube Music</option>
+          <option value="deezer">Deezer</option>
+        </select>
+      </div>
+      <button onclick="convertUniversalPlaylist()">Convert</button>
     </div>
 
     <div id="feedback" class="feedback"></div>
@@ -219,6 +231,11 @@
       const link = document.getElementById('songLink').value.trim();
       const to = document.getElementById('targetPlatform').value;
       if (!link) return showFeedback('Please enter a track link!');
+      const from = detectPlatform(link);
+      if (!from) return showFeedback('Could not detect platform from link!');
+      // Check login requirements for single track conversion if needed (future-proof)
+      if ((from === 'spotify' || to === 'spotify') && !session) return showFeedback('Please connect to Spotify first!');
+      if ((from === 'ytmusic' || to === 'ytmusic') && !ytSession) return showFeedback('Please login with YouTube first!');
       window.location.href = `/convert?link=${encodeURIComponent(link)}&to=${encodeURIComponent(to)}`;
     }
 
@@ -244,6 +261,15 @@
       const playlistId = match[1];
       if (!session) return showFeedback('Please connect to Spotify first!');
       window.location.href = `/convert-spotify-to-youtube?playlistId=${encodeURIComponent(playlistId)}&ytSession=${encodeURIComponent(ytSession)}&spToken=${encodeURIComponent(session)}`;
+    }
+
+    function convertYouTubePlaylist() {
+      hideFeedback(); hideProgress();
+      const link = document.getElementById('youtubePlaylistLink').value.trim();
+      if (!link) return showFeedback('Please enter a YouTube playlist link!');
+      if (!session) return showFeedback('Please connect to Spotify first!');
+      listenForProgress(session);
+      window.location.href = `/convert-youtube-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
     }
 
     function listenForProgress(session) {
@@ -278,6 +304,82 @@
         document.getElementById('songLink').value = text;
       });
     }
+
+    function pasteUniversalPlaylistLink() {
+      navigator.clipboard.readText().then(text => {
+        document.getElementById('universalPlaylistLink').value = text;
+      });
+    }
+
+    function updateLoginStatus() {
+      document.getElementById('spotifyStatus').textContent = session ? 'Connected' : 'Not Connected';
+      document.getElementById('spotifyStatus').style.color = session ? '#047857' : '#b91c1c';
+      document.getElementById('youtubeStatus').textContent = ytSession ? 'Connected' : 'Not Connected';
+      document.getElementById('youtubeStatus').style.color = ytSession ? '#047857' : '#b91c1c';
+    }
+    updateLoginStatus();
+
+    function spotifyLogin() {
+      window.location.href = '/login';
+    }
+    function youtubeLogin() {
+      window.location.href = '/youtube/login';
+    }
+
+    function detectPlatform(link) {
+      // Deezer playlist
+      if (/deezer\.com\/(?:[a-z]{2}\/)?playlist\//.test(link) || /deezer\.com\/playlist\?/.test(link)) return 'deezer';
+      // Deezer track
+      if (/deezer\.com\/(?:[a-z]{2}\/)?track\//.test(link) || /deezer\.com\/track\?/.test(link) || /link\.deezer\.com\//.test(link)) return 'deezer';
+      // Spotify playlist
+      if (/spotify\.com\/playlist\//.test(link) || /open\.spotify\.com\/playlist\//.test(link)) return 'spotify';
+      // Spotify track
+      if (/spotify\.com\/track\//.test(link) || /open\.spotify\.com\/track\//.test(link)) return 'spotify';
+      // YouTube playlist (playlist page, video in playlist, or youtu.be with list)
+      if (
+        /youtube\.com\/playlist\?list=/.test(link) ||
+        /youtube\.com\/watch\?.*list=/.test(link) ||
+        /music\.youtube\.com\/playlist\?list=/.test(link) ||
+        /music\.youtube\.com\/watch\?.*list=/.test(link) ||
+        /youtu\.be\/.*[?&]list=/.test(link)
+      ) return 'ytmusic';
+      // YouTube Music or youtu.be (single track)
+      if (/music\.youtube\.com\/watch\?/.test(link) || /youtu\.be\//.test(link) || /youtube\.com\/watch\?v=/.test(link)) return 'ytmusic';
+      return null;
+    }
+
+    function convertUniversalPlaylist() {
+      hideFeedback(); hideProgress();
+      const link = document.getElementById('universalPlaylistLink').value.trim();
+      const to = document.getElementById('universalTargetPlatform').value;
+      if (!link) return showFeedback('Please enter a playlist link!');
+      const from = detectPlatform(link);
+      if (!from) return showFeedback('Could not detect platform from link!');
+      // Check login requirements
+      if ((from === 'deezer' || to === 'spotify') && !session) return showFeedback('Please connect to Spotify first!');
+      if ((from === 'spotify' && to === 'ytmusic') && !ytSession) return showFeedback('Please login with YouTube first!');
+      if ((from === 'ytmusic' && to === 'spotify') && !session) return showFeedback('Please connect to Spotify first!');
+      if ((from === 'ytmusic' && to === 'spotify') && !session) return showFeedback('Please connect to Spotify first!');
+      if ((from === 'ytmusic' && to === 'spotify') && !session) return showFeedback('Please connect to Spotify first!');
+      // Route to correct backend endpoint
+      listenForProgress(session || ytSession);
+      if (from === 'deezer' && to === 'spotify') {
+        window.location.href = `/convert-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
+      } else if (from === 'spotify' && to === 'ytmusic') {
+        const match = link.match(/playlist\/([a-zA-Z0-9]+)/);
+        if (!match) return showFeedback('Invalid Spotify playlist link!');
+        const playlistId = match[1];
+        window.location.href = `/convert-spotify-to-youtube?playlistId=${encodeURIComponent(playlistId)}&ytSession=${encodeURIComponent(ytSession)}&spToken=${encodeURIComponent(session)}`;
+      } else if (from === 'ytmusic' && to === 'spotify') {
+        window.location.href = `/convert-youtube-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
+      } else {
+        // Fallback: try generic track/playlist conversion if supported
+        showFeedback('This conversion is not supported yet.');
+      }
+    }
+
+    // Call updateLoginStatus on page load and after login redirects
+    window.addEventListener('DOMContentLoaded', updateLoginStatus);
   </script>
 </body>
 </html>

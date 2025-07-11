@@ -12,6 +12,8 @@ import { createSpotifyPlaylist } from './mappers/deezer-to-spotify-playlist-mapp
 import { getYouTubeLoginUrl, getYouTubeTokensFromCode } from './utils/youtube-auth.js';
 import { convertSpotifyToYouTubePlaylist } from './mappers/spotify-to-youtube-playlist-mapper.js';
 import resolveSpotifyPlaylist from './resolvers/spotify-playlist-resolver.js';
+import resolveYouTubePlaylist from './resolvers/youtube-playlist-scraper.js';
+import { convertYouTubeToSpotifyPlaylist } from './mappers/youtube-to-spotify-playlist-mapper.js';
 
 dotenv.config();
 
@@ -185,6 +187,47 @@ app.get('/convert-to-youtube', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).send('Error converting playlist to YouTube');
+  }
+});
+
+// Convert YouTube playlist to Spotify playlist
+app.get('/convert-youtube-playlist', async (req, res) => {
+  const { link, session } = req.query;
+  const user = userSessions.get(session);
+  let token = user?.accessToken;
+  let refreshToken = user?.refreshToken;
+
+  if (!token) {
+    return res.status(401).send('Missing or invalid session token.');
+  }
+
+  try {
+    progressMap.set(session, { stage: 'Fetching YouTube playlist...', current: 0, total: 0 });
+    const { name, tracks } = await resolveYouTubePlaylist(link);
+    progressMap.set(session, { stage: 'Searching tracks on Spotify...', current: 0, total: tracks.length });
+
+    // Step 1: Create playlist and add tracks
+    const url = await convertYouTubeToSpotifyPlaylist(
+      token,
+      name,
+      tracks,
+      (added) => {
+        progressMap.set(session, { stage: 'Adding tracks to Spotify playlist...', current: added, total: tracks.length });
+      },
+      refreshToken,
+      (newAccessToken, newRefreshToken) => {
+        userSessions.set(session, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+        token = newAccessToken;
+        refreshToken = newRefreshToken;
+        console.log('Updated session tokens after refresh.');
+      }
+    );
+    progressMap.set(session, { stage: 'Done', current: tracks.length, total: tracks.length });
+    setTimeout(() => progressMap.delete(session), 60000); // Clean up after 1 min
+    res.redirect(url);
+  } catch (err) {
+    progressMap.set(session, { stage: 'Error', error: err.message });
+    res.status(500).send('Error converting YouTube playlist to Spotify: ' + err.message);
   }
 });
 
