@@ -1,71 +1,144 @@
-## WHY? 
+# SongSeek 🎵
 
-I got tired of trying to find a suitable tool or application that would let me convert my big Deezer playlists to Spotify or other services without paying, throttling or limiting features, so I made a quick and concise Node.js web tool that allows users to convert music track links and playlists from one platform to another. It fetches metadata from the source link and redirects users to the equivalent track or created playlist on the target platform.
+---
 
-## Features
-- Convert tracks between Spotify, Deezer, and YouTube Music 
-- Convert entire Deezer playlists to Spotify
-- Convert entire Spotify playlists to YouTube Music
-- Modern, responsive UI for a clean user experience
-- Real-time progress feedback during playlist conversion
-- Robust rate-limiting and error handling for large playlists
-- Automatic Spotify and YouTube token refresh for long-running jobs
-- Improved logging/debugging for all major API calls and errors
-- Extensible architecture for adding more platforms
+## 📚 Table of Contents
 
-## Project Structure
-- `server.js`: Main Express server handling API, static frontend, progress tracking, and session management
-- `public/`: Frontend HTML and JS (with modern UI and real-time progress updates)
-- `resolvers/`: Logic to extract metadata from source links (e.g., Deezer, Spotify, YouTube)
-- `mappers/`: Logic to map metadata to target platforms (e.g., Spotify, YouTube)
-- `utils/`: Shared utilities (rate-limiting, pagination, Spotify/YouTube auth, etc.)
-- `services/`: YouTube Data API helpers and OAuth logic
+- [🚀 Why SongSeek?](#-why-songseek)
+- [✨ Features](#-features)
+- [🎯 Platform Support](#-platform-support)
+- [📖 How It Works](#-how-it-works)
+- [🚧 Coming Soon](#-coming-soon)
+- [🐛 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
+- [🙏 Acknowledgments](#-acknowledgments)
 
-## Setup
-1. **Clone the repository**
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-3. **Create a `.env` file** in the root directory with your API credentials:
-   ```env
-   SPOTIFY_CLIENT_ID=your_spotify_client_id
-   SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
-   SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/callback
-   YOUTUBE_CLIENT_ID=your_google_client_id
-   YOUTUBE_CLIENT_SECRET=your_google_client_secret
-   YOUTUBE_REDIRECT_URI=http://127.0.0.1:3000/youtube/callback
-   YOUTUBE_API_KEY=your_youtube_data_api_key
-   ```
-4. **Register the same redirect URIs** in your [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/applications) and [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
-5. **Enable the YouTube Data API v3** in your Google Cloud project.
-6. **Start the server:**
-   ```bash
-   npm start
-   ```
-7. **Go to** [http://127.0.0.1:3000](http://127.0.0.1:3000)
+---
 
-## Usage
-- **Track conversion:** Paste a Spotify, Deezer, or YouTube link and click "Convert Track".
-- **Playlist conversion:**
-  - Deezer → Spotify: Paste a Deezer playlist link and click "Convert Playlist".
-  - Spotify → YouTube Music: Paste a Spotify playlist link, log in with YouTube, and click "Convert to YouTube Music".
-- **Connect to Spotify/YouTube:** Use the login buttons before converting playlists.
+## 🚀 Why SongSeek?
 
-## Advanced Features
-- **YouTube Data API Integration:** For standard YouTube video links, SongSeek fetches both the video title and channel name for accurate mapping to Spotify/Deezer.
-- **Large Playlist Support:** Handles playlists with thousands of tracks using efficient pagination and batching.
-- **Progress Feedback:** Real-time updates via Server-Sent Events (SSE) show exactly how many tracks have been processed.
-- **Rate Limiting:** All API calls are rate-limited to avoid hitting Spotify/Deezer/YouTube limits.
-- **Token Refresh:** Spotify and YouTube tokens are automatically refreshed if they expire during long jobs.
-- **Logging:** All major API calls, errors, and token refreshes are logged to the console for debugging.
+I got tired of trying to find a suitable tool that would let me convert my big Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I created a fast, free, no-nonsense solution with rich UX and real-time tracking to quickly convert music track links and playlists from one platform to another. SongSeek converts your entire music library between Spotify, YouTube Music, Deezer, and Apple Music with high accuracy, fetching metadata from the source link and redirecting users to the equivalent track or created playlist on the target platform.
 
-## Troubleshooting
-- **Missing required parameter: redirect_uri:** Ensure your `.env` and developer dashboards have the exact same redirect URI, and restart the server after changes.
-- **Playlist not populating:** Large playlists can take several minutes. Watch the progress bar for updates. Check server logs for errors.
-- **Token expired:** The app will automatically refresh your Spotify/YouTube token if needed.
-- **YouTube quota exceeded:** The YouTube Data API has a daily quota. If you hit the limit, wait for it to reset or request a higher quota in the Google Cloud Console.
-- **Debugging:** Check your terminal/server logs for detailed step-by-step progress and errors.
+---
 
-## Extending
-- To add support for more platforms, implement new resolvers in `resolvers/` and mappers in `mappers/`, then update the respective `index.js` files. Use the shared utilities for rate-limiting and pagination.
+## ✨ Features
+
+### 🔍 Intelligent Matching
+- Smart title + artist search across platforms
+- Excellent match accuracy with manual fix options
+
+### ⚡ Performance
+- Real-time updates via Server-Sent Events
+- Background processing for large playlists
+- Lazy loading & caching for speed
+
+### 🎨 Interface
+- Mobile-first responsive design
+- Dark/Light themes with smooth animations
+- Drag & drop and clipboard integration
+
+### 🔄 Cross-Platform Playlist Conversion
+| Conversion | Supported |
+|------------|-----------|
+| Deezer → Spotify | ✅ |
+| Spotify → YouTube Music | ✅ |
+| YouTube → Spotify | ✅ |
+| Apple Music → Spotify / YouTube | ✅ |
+
+### 🎧 Track-by-Track Conversion
+- One-click track conversions between all platforms
+- Search and result previews
+- Direct links and auto-scrolling to results
+
+### 🛠 Advanced
+- Manual search + batch fix for failed matches
+- OAuth with auto-refresh for Spotify & YouTube
+- Persistent session + progress tracking
+- Multi-platform search (Spotify, Deezer, YouTube, Apple Music)
+- Admin dashboard with conversion analytics
+
+---
+
+## 🎯 Platform Support
+
+| Platform         | Import Playlist | Export Playlist | Track Conversion | Search | OAuth |
+|------------------|------------------|------------------|------------------|--------|-------|
+| Spotify          | ✅               | ✅               | ✅               | ✅     | ✅    |
+| Deezer           | ✅               | 🔄               | ✅               | ✅     | ❌    |
+| YouTube Music    | ✅               | ✅               | ✅               | ✅     | ✅    |
+| Apple Music      | ✅ (scrape)      | ❌               | ✅               | ✅     | ❌    |
+| SoundCloud       | 🔄               | ❌               | 🔄               | 🔄     | 🔄    |
+
+> 🔹 Note: YouTube Music has quota limits — large conversions may exhaust daily tokens.
+
+### **What This Means:**
+- **Spotify**: Full bidirectional support - import and export playlists, convert tracks, search
+- **Deezer**: Import playlists and convert tracks (export coming soon with OAuth)
+- **YouTube Music**: Full bidirectional support with OAuth authentication
+- **Apple Music**: Import playlists via web scraping, convert individual tracks
+- **SoundCloud**: Coming soon with full integration
+
+---
+
+## 📖 How It Works
+
+### 🎵 Playlist Conversion (3 Steps)
+1. **Paste your playlist link** and choose a target platform.
+2. **Login if required** via OAuth.
+3. **Watch it convert in real time**, see results and manually fix any unmatched tracks
+
+### 🎧 Track Conversion
+- Paste any track link
+- Select your target platform
+- View results + links instantly
+
+---
+
+## 🚧 Coming Soon
+
+### 🔨 Feature Roadmap
+
+| Feature                    | Status        |
+|----------------------------|---------------|
+| SoundCloud Integration     | 🛠 In Progress |
+| Deezer Export w/ OAuth     | 🛠 In Progress |
+| Apple Music Export         | 🧩 Researching |
+| Bulk Upload via File       | 🔜 Planned     |
+| UI for Failed Matches Fix  | 🔜 Planned     |
+
+---
+
+## 🐛 Troubleshooting
+
+| Issue                        | Solution                                                                 |
+|-----------------------------|--------------------------------------------------------------------------|
+| Redirect URI mismatch       | Check your `.env` and developer portal values                           |
+| YouTube quota exceeded      | Wait 24 hours or request a higher quota                                  |
+| Playlist stuck or incomplete| Refresh; large lists may take time                                       |
+| Token expired               | Handled automatically with token refresh                                 |
+| Apple Music issues          | Try a different link or refresh if scraping fails                       |
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch
+3. Commit & push your changes
+4. Open a Pull Request
+
+---
+
+## 🙏 Acknowledgments
+
+Huge thanks to the open tools and libraries that made this possible:
+
+- [Spotify Web API](https://developer.spotify.com/documentation/web-api/)
+- [YouTube Data API](https://developers.google.com/youtube/v3)
+- [Deezer API](https://developers.deezer.com/api)
+- [Node.js](https://nodejs.org/) – free, open-source runtime environment
+- [shadcn/ui](https://ui.shadcn.com) – beautiful and accessible React components 
+- [Next.js](https://nextjs.org) & [React](https://react.dev) – modern UI framework
+- [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) – for real-time UI
+
+---

@@ -1,0 +1,208 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { CheckCircle, XCircle, Loader2, Music, Apple, Cloud } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import type { JSX } from "react/jsx-runtime"
+
+export default function LoginSuccess() {
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [platform, setPlatform] = useState<string>("")
+  const [progress, setProgress] = useState(0)
+  const [countdown, setCountdown] = useState(3)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const getPlatformIcon = (platform: string) => {
+    const icons: Record<string, JSX.Element> = {
+      Spotify: <Music className="h-8 w-8 text-green-600" />,
+      "YouTube Music": <Music className="h-8 w-8 text-red-600" />,
+      "Apple Music": <Apple className="h-8 w-8 text-gray-900" />,
+      SoundCloud: <Cloud className="h-8 w-8 text-orange-400" />,
+    }
+    return icons[platform] || <Music className="h-8 w-8 text-blue-600" />
+  }
+
+  const getPlatformColor = (platform: string) => {
+    const colors: Record<string, string> = {
+      Spotify: "from-green-500 to-green-600",
+      "YouTube Music": "from-red-500 to-red-600",
+      "Apple Music": "from-gray-800 to-gray-900",
+      SoundCloud: "from-orange-300 to-orange-400",
+    }
+    return colors[platform] || "from-blue-500 to-blue-600"
+  }
+
+  useEffect(() => {
+    const spotifySession = searchParams.get("spotify_session")
+    const ytSession = searchParams.get("yt_session")
+    const appleSession = searchParams.get("apple_session")
+    const soundcloudSession = searchParams.get("soundcloud_session")
+
+    let detectedPlatform = ""
+    let sessionKey = ""
+
+    if (spotifySession) {
+      detectedPlatform = "Spotify"
+      sessionKey = "spotify_session"
+      localStorage.setItem(sessionKey, spotifySession)
+    } else if (ytSession) {
+      detectedPlatform = "YouTube Music"
+      sessionKey = "yt_session"
+      localStorage.setItem(sessionKey, ytSession)
+    } else if (appleSession) {
+      detectedPlatform = "Apple Music"
+      sessionKey = "apple_session"
+      localStorage.setItem(sessionKey, appleSession)
+    } else if (soundcloudSession) {
+      detectedPlatform = "SoundCloud"
+      sessionKey = "soundcloud_session"
+      localStorage.setItem(sessionKey, soundcloudSession)
+    }
+
+    if (detectedPlatform) {
+      setPlatform(detectedPlatform)
+
+      // Animate progress
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(progressInterval)
+            setStatus("success")
+            return 100
+          }
+          return prev + 10
+        })
+      }, 100)
+
+      // Countdown and redirect
+      setTimeout(() => {
+        const countdownInterval = setInterval(() => {
+          setCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdownInterval)
+              router.push("/")
+              return 0
+            }
+            return prev - 1
+          })
+        }, 1000)
+      }, 1500)
+    } else {
+      setStatus("error")
+    }
+  }, [searchParams, router])
+
+  const handleManualRedirect = () => {
+    router.push("/")
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm">
+        <CardHeader className="text-center pb-4">
+          <div className="flex justify-center mb-6">
+            {status === "loading" && (
+              <div className="relative">
+                <div className="p-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-ping opacity-20"></div>
+              </div>
+            )}
+            {status === "success" && (
+              <div className="relative">
+                <div className={`p-4 bg-gradient-to-r ${getPlatformColor(platform)} rounded-full`}>
+                  {getPlatformIcon(platform)}
+                </div>
+                <div className="absolute -top-1 -right-1 p-1 bg-green-500 rounded-full">
+                  <CheckCircle className="h-4 w-4 text-white" />
+                </div>
+              </div>
+            )}
+            {status === "error" && (
+              <div className="p-4 bg-gradient-to-r from-red-500 to-red-600 rounded-full">
+                <XCircle className="h-8 w-8 text-white" />
+              </div>
+            )}
+          </div>
+
+          <CardTitle className="text-2xl">
+            {status === "loading" && "Connecting..."}
+            {status === "success" && "Successfully Connected!"}
+            {status === "error" && "Connection Failed"}
+          </CardTitle>
+
+          <CardDescription className="text-base">
+            {status === "loading" && `Establishing connection with ${platform}...`}
+            {status === "success" && `You're now connected to ${platform}. Redirecting you back to SongSeek...`}
+            {status === "error" && "Unable to establish connection. Please try again."}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {status === "loading" && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Setting up connection...</span>
+                <span>{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          )}
+
+          {status === "success" && (
+            <div className="text-center space-y-4">
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Connection Established</span>
+                </div>
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                  You can now convert playlists to and from {platform}
+                </p>
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                Redirecting in <span className="font-bold text-blue-600">{countdown}</span> seconds...
+              </div>
+
+              <Button
+                onClick={handleManualRedirect}
+                className={`w-full bg-gradient-to-r ${getPlatformColor(platform)} hover:opacity-90 transition-opacity`}
+              >
+                Continue to SongSeek
+              </Button>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="text-center space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                <div className="flex items-center justify-center gap-2 text-red-700 dark:text-red-300">
+                  <XCircle className="h-5 w-5" />
+                  <span className="font-medium">Connection Failed</span>
+                </div>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  Please check your credentials and try again
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleManualRedirect} className="flex-1 bg-transparent">
+                  Back to SongSeek
+                </Button>
+                <Button onClick={() => window.location.reload()} className="flex-1">
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
