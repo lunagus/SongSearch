@@ -4,13 +4,13 @@
 
 ## 💭 WHY?
 
-I got tired of trying to find a suitable tool that would let me convert my big Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I created a fast, free, no-nonsense solution with rich UX and real-time tracking to quickly convert music track links and playlists from one platform to another. 
+I got tired of trying to find a suitable tool that would let me convert large Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I built **SongSeek** to offer a fast, free, and accurate alternative. It features a rich UX and real-time tracking to convert music libraries between platforms like Spotify, YouTube Music, Deezer, and Apple Music with high accuracy.
 
-SongSeek converts your entire music library between Spotify, YouTube Music, Deezer, and Apple Music with high accuracy, fetching metadata from the source link and redirecting users to the equivalent track or created playlist on the target platform.
+**SongSeek** fetches metadata from source links and redirects users to the equivalent track or playlist on the target platform.
 
 ---
 
-## FEATURES
+## FEATURES: 
 
 ### 🔍 Intelligent Matching
 - Smart title + artist search across platforms
@@ -27,14 +27,14 @@ SongSeek converts your entire music library between Spotify, YouTube Music, Deez
 - Drag & drop and clipboard integration
 
 ### 🔄 Cross-Platform Playlist Conversion
-| Conversion | Supported |
-|------------|-----------|
-| Deezer → Spotify | ✅ |
-| Spotify → YouTube Music | ✅ |
-| YouTube Music → Spotify | ✅ |
-| Apple Music → Spotify / YouTube Music | ✅ |
-| Tidal → Spotify / YouTube Music / Deezer | ✅ |
-| Amazon Music → Spotify / YouTube Music / Deezer | ✅ |
+| Source        | Target(s)                | Supported |
+|---------------|--------------------------|-----------|
+| Spotify       | YouTube Music            | ✅        |
+| YouTube Music | Spotify                  | ✅        |
+| Deezer        | Spotify, YouTube Music   | ✅        |
+| Apple Music   | Spotify, YouTube Music   | ✅        |
+| Tidal         | Spotify, YouTube Music   | ✅        |
+| Amazon Music  | Spotify, YouTube Music   | ✅        |
 
 ### 🎧 Track-by-Track Conversion
 - One-click track conversions between all platforms
@@ -52,27 +52,28 @@ SongSeek converts your entire music library between Spotify, YouTube Music, Deez
 
 ## 🎯 Platform Support
 
-| Platform         | Import Playlist | Export Playlist | Track Conversion | Search | OAuth |
-|------------------|------------------|------------------|------------------|--------|-------|
-| Spotify          | ✅               | ✅               | ✅               | ✅     | ✅    |
-| YouTube Music    | ✅               | ✅               | ✅               | ✅     | ✅    |
-| Deezer           | ✅               | ⏳               | ✅               | ✅     | 🔄    |
-| Apple Music      | ✅ (scrape)      | ❌               | ✅               | ✅     | ❌    |
-| Tidal            | ✅ (scrape)      | ❌               | ❌               | ❌     | ❌    |
-| Amazon Music     | ✅ (scrape)      | ❌               | ❌               | ❌     | ❌    |
+| Platform       | Import Playlist | Export Playlist | Track Conversion | Search | OAuth |
+|----------------|----------------|----------------|------------------|--------|-------|
+| Spotify        | ✅              | ✅             | ✅               | ✅     | ✅    |
+| YouTube Music  | ✅              | ✅             | ✅               | ✅     | ✅    |
+| Deezer         | ✅              | ⌛             | ✅               | ✅     | ⌛    |
+| Apple Music    | ✅              | ❌             | ✅               | ✅     | ❌    |
+| Tidal          | ✅              | ❌             | ✅               | ✅     | ❌    |
+| Amazon Music   | ✅              | ❌             | ✅               | ✅     | ❌    |
 
 > 🔹 Note: YouTube Music has quota limits — large conversions may exhaust daily tokens.
 
 > 🔹 Deezer Status: Playlist export requires OAuth, but Deezer's developer portal is temporarily closed for new applications. Track conversion and search work via public API.
 
-### **What This Means:**
-- **Spotify**: Full bidirectional support - import and export playlists, convert tracks, search, with OAuth authentication
-- **YouTube Music**: Full bidirectional support with OAuth authentication
+### What This Means:
+- **Spotify**: Full bidirectional support (import/export playlists, track conversion, search, OAuth)
+- **YouTube Music**: Full bidirectional support (import/export playlists, track conversion, search, OAuth)
 - **Deezer**: Import playlists and convert tracks (export blocked by developer portal closure)
-- **Apple Music**: Import playlists via web scraping, convert individual tracks
-- **Tidal**: Import playlists and tracks via web scraping (no export due to reliability issues)
-- **Amazon Music**: Import playlists and tracks via web scraping (no export due to reliability issues)
+- **Apple Music**: Import playlists via web scraping, convert individual tracks, search
+- **Tidal**: Import playlists and tracks via public API, convert tracks, search
+- **Amazon Music**: Import playlists and tracks via headless browser, convert tracks, search
 
+> API restrictions on music services limit functionalities.
 
 ---
 
@@ -96,7 +97,7 @@ SongSeek converts your entire music library between Spotify, YouTube Music, Deez
 
 | Feature                    | Status        |
 |----------------------------|---------------|
-| Deezer Export w/ OAuth     | ⏳ In Progress |
+| Deezer Export w/ OAuth     | ⏳ Waiting |
 | Apple Music Export         | 🧩 Researching |
 | Bulk Upload via File       | 🔜 Planned     |
 | UI for Failed Matches Fix  | 🔜 Planned     |
@@ -113,6 +114,7 @@ SongSeek converts your entire music library between Spotify, YouTube Music, Deez
 | Token expired               | Handled automatically with token refresh                                 |
 | Apple Music issues          | Try a different link or refresh if scraping fails                       |
 | Tidal/Amazon Music issues   | Web scraping may fail if site structure changes                         |
+| Track not found | Use the manual fix UI to search and replace unmatched tracks |
 
 ---
 

@@ -173,7 +173,7 @@ export async function convertWebPlaylist(link: string, targetPlatform: string, s
     params.append('session', session);
   }
   
-  const url = `${API_BASE_URL}/convert-apple-music-playlist?${params.toString()}`;
+  const url = `${API_BASE_URL}/convert-web-playlist?${params.toString()}`;
   const res = await fetch(url, { method: "GET" });
   
   if (!res.ok) {

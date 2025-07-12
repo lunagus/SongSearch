@@ -803,7 +803,7 @@ app.get('/convert-youtube-to-deezer', async (req, res) => {
 });
 
 // Convert Apple Music, Amazon Music, and Tidal playlists to other platforms
-app.get('/convert-apple-music-playlist', async (req, res) => {
+app.get('/convert-web-playlist', async (req, res) => {
   const { link, targetPlatform, session } = req.query;
   
   if (!link || !targetPlatform) {
