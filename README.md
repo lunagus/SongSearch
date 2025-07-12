@@ -1,27 +1,14 @@
-# SongSeek 🎵
+# SongSeek
 
 ---
 
-## 📚 Table of Contents
-
-- [🚀 Why SongSeek?](#-why-songseek)
-- [✨ Features](#-features)
-- [🎯 Platform Support](#-platform-support)
-- [📖 How It Works](#-how-it-works)
-- [🚧 Coming Soon](#-coming-soon)
-- [🐛 Troubleshooting](#-troubleshooting)
-- [🤝 Contributing](#-contributing)
-- [🙏 Acknowledgments](#-acknowledgments)
-
----
-
-## 🚀 Why SongSeek?
+## 💭 WHY?
 
 I got tired of trying to find a suitable tool that would let me convert my big Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I created a fast, free, no-nonsense solution with rich UX and real-time tracking to quickly convert music track links and playlists from one platform to another. SongSeek converts your entire music library between Spotify, YouTube Music, Deezer, and Apple Music with high accuracy, fetching metadata from the source link and redirecting users to the equivalent track or created playlist on the target platform.
 
 ---
 
-## ✨ Features
+## FEATURES
 
 ### 🔍 Intelligent Matching
 - Smart title + artist search across platforms
@@ -87,7 +74,7 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 2. **Login if required** via OAuth.
 3. **Watch it convert in real time**, see results and manually fix any unmatched tracks
 
-### 🎧 Track Conversion
+### 🎶 Track Conversion
 - Paste any track link
 - Select your target platform
 - View results + links instantly
@@ -129,7 +116,7 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 
 ---
 
-## 🙏 Acknowledgments
+## 🏆 Acknowledgments
 
 Huge thanks to the open tools and libraries that made this possible:
 
