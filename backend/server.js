@@ -823,6 +823,13 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
   console.log(`Converting ${sourcePlatform} playlist: ${link} to ${targetPlatform}`);
 
   try {
+    // Set initial progress state for all platforms
+    progressMap.set(session, {
+      stage: `Fetching ${sourcePlatform} playlist...`,
+      current: 0,
+      total: 0,
+      tracks: []
+    });
     // Check if target platform requires authentication
     if (targetPlatform === 'spotify' || targetPlatform === 'ytmusic' || targetPlatform === 'deezer') {
       const user = userSessions.get(session);
@@ -859,22 +866,99 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
     }
 
     let playlistUrl = null;
+    let conversionResults = null;
 
     // Convert to target platform
     if (targetPlatform === 'spotify') {
       const user = userSessions.get(session);
       const { createSpotifyPlaylist } = await import('./mappers/deezer-to-spotify-playlist-mapper.js');
-      
+      // Set description for Amazon Music
+      let playlistDescription = '';
+      if (sourcePlatform === 'amazonmusic') {
+        playlistDescription = '(Converted from Amazon Music using SongSeek)';
+      } else if (sourcePlatform === 'deezer') {
+        playlistDescription = '(Converted from Deezer using SongSeek)';
+      } else if (sourcePlatform === 'applemusic') {
+        playlistDescription = '(Converted from Apple Music using SongSeek)';
+      } else if (sourcePlatform === 'tidal') {
+        playlistDescription = '(Converted from Tidal using SongSeek)';
+      }
+      // Prepare track progress for progress bar
+      const trackProgress = tracks.map(track => ({
+        title: track.title,
+        artist: track.artist,
+        status: 'pending'
+      }));
+      progressMap.set(session, {
+        stage: `Searching tracks on Spotify...`,
+        current: 0,
+        total: tracks.length,
+        tracks: trackProgress
+      });
       playlistUrl = await createSpotifyPlaylist(
         user.accessToken,
         name,
         tracks,
-        null, // progress callback
+        (added, trackInfo) => {
+          if (trackInfo) {
+            // Update specific track status
+            const trackIndex = trackProgress.findIndex(t =>
+              t.title === trackInfo.title && t.artist === trackInfo.artist
+            );
+            if (trackIndex !== -1) {
+              trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
+            }
+          } else {
+            // Update track statuses based on what was added
+            for (let i = 0; i < added && i < trackProgress.length; i++) {
+              trackProgress[i].status = 'success';
+            }
+          }
+          progressMap.set(session, {
+            stage: 'Adding tracks to Spotify playlist...',
+            current: added,
+            total: tracks.length,
+            tracks: trackProgress
+          });
+        },
         user.refreshToken,
         (newAccessToken, newRefreshToken) => {
           userSessions.set(session, { accessToken: newAccessToken, refreshToken: newRefreshToken });
-        }
+        },
+        playlistDescription // pass description if supported
       );
+      progressMap.set(session, {
+        stage: 'Done',
+        current: tracks.length,
+        total: tracks.length,
+        tracks: trackProgress
+      });
+      // Build conversion results for frontend
+      const matched = tracks.map(track => ({
+        title: track.title,
+        artist: track.artist,
+        status: 'success'
+      }));
+      conversionResults = {
+        matched,
+        skipped: [],
+        mismatched: [],
+        playlistUrl: playlistUrl
+      };
+      conversionResultsMap.set(session, conversionResults);
+      setTimeout(() => conversionResultsMap.delete(session), 300000);
+      // Always return session in response
+      res.json({
+        success: true,
+        session,
+        playlistName: name,
+        sourcePlatform: sourcePlatform,
+        targetPlatform: targetPlatform,
+        playlistUrl: playlistUrl,
+        totalTracks: tracks.length,
+        message: `${sourcePlatform} playlist converted successfully`
+      });
+      return;
     } else if (targetPlatform === 'ytmusic') {
       const user = userSessions.get(session);
       const { convertSpotifyToYouTubePlaylist } = await import('./mappers/spotify-to-youtube-playlist-mapper.js');
@@ -990,6 +1074,20 @@ app.post('/feedback', async (req, res) => {
       error: 'Failed to process feedback',
       message: 'Please try again later' 
     });
+  }
+});
+
+// Session validity check endpoint
+app.get('/api/check-session', (req, res) => {
+  const { platform, session } = req.query;
+  if (!platform || !session) {
+    return res.status(400).json({ error: 'Missing platform or session parameter' });
+  }
+  const user = userSessions.get(session);
+  if (user?.accessToken) {
+    return res.status(200).json({ valid: true });
+  } else {
+    return res.status(401).json({ valid: false });
   }
 });
 

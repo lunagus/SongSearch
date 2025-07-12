@@ -15,7 +15,7 @@ async function fetchWithTokenRefresh(requestFn, token, refreshToken, onTokenRefr
   return response;
 }
 
-export async function createSpotifyPlaylist(token, name, tracks, progressCb, refreshToken, onTokenRefresh) {
+export async function createSpotifyPlaylist(token, name, tracks, progressCb, refreshToken, onTokenRefresh, description) {
   // Step 1: Get user profile
   console.log('Fetching Spotify user profile...');
   const profileRes = await spotifyFetch((t = token) =>
@@ -41,7 +41,7 @@ export async function createSpotifyPlaylist(token, name, tracks, progressCb, ref
         },
         body: JSON.stringify({
           name: `🎵 ${name}`,
-          description: 'Converted from Deezer using SongSeek',
+          description: description || 'Converted from Deezer using SongSeek',
           public: false,
         }),
       }),

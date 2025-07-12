@@ -121,6 +121,28 @@ export default function SongSeekApp() {
     setMounted(true)
   }, [])
 
+  // Check session validity with backend
+  async function checkSessionValidity(platform: string, sessionKey: string) {
+    if (!sessionKey) return false;
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000';
+    try {
+      const res = await fetch(`${backendUrl}/api/check-session?platform=${platform}&session=${sessionKey}`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        return true;
+      } else {
+        // Session invalid, remove from localStorage
+        localStorage.removeItem(`${platform}_session`);
+        return false;
+      }
+    } catch (err) {
+      // On error, assume session is invalid
+      localStorage.removeItem(`${platform}_session`);
+      return false;
+    }
+  }
+
   useEffect(() => {
     // Track page view
     trackEvent("page_view", {
@@ -155,7 +177,7 @@ export default function SongSeekApp() {
       }, 1000)
     }
 
-    // Check login status from localStorage
+    // Check login status from localStorage, but verify with backend
     const sessions = {
       spotify: localStorage.getItem("spotify_session"),
       youtube: localStorage.getItem("yt_session"),
@@ -163,12 +185,20 @@ export default function SongSeekApp() {
       appleMusic: localStorage.getItem("apple_session"),
     }
 
+    // Validate sessions with backend
+    async function validateSessions() {
+      const spotifyValid = await checkSessionValidity("spotify", sessions.spotify || "");
+      const youtubeValid = await checkSessionValidity("youtube", sessions.youtube || "");
+      const deezerValid = await checkSessionValidity("deezer", sessions.deezer || "");
+      const appleValid = await checkSessionValidity("apple", sessions.appleMusic || "");
     setLoginStatus({
-      spotify: !!sessions.spotify,
-      youtube: !!sessions.youtube,
-      deezer: !!sessions.deezer,
-      appleMusic: !!sessions.appleMusic,
-    })
+        spotify: spotifyValid,
+        youtube: youtubeValid,
+        deezer: deezerValid,
+        appleMusic: appleValid,
+      });
+    }
+    validateSessions();
 
     // Track connected platforms
     const connectedPlatforms = Object.entries(sessions)
@@ -219,6 +249,24 @@ export default function SongSeekApp() {
       hoverColor: "hover:bg-gray-800",
       badgeColor: "bg-gray-500/20 text-gray-700 border-gray-300/50",
       darkBadgeColor: "dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30",
+    },
+    {
+      id: "tidal",
+      name: "Tidal",
+      icon: "tidal",
+      color: "bg-cyan-600",
+      hoverColor: "hover:bg-cyan-700",
+      badgeColor: "bg-cyan-500/20 text-cyan-700 border-cyan-300/50",
+      darkBadgeColor: "dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/30",
+    },
+    {
+      id: "amazonmusic",
+      name: "Amazon Music",
+      icon: "amazonmusic",
+      color: "bg-orange-500",
+      hoverColor: "hover:bg-orange-600",
+      badgeColor: "bg-orange-500/20 text-orange-700 border-orange-300/50",
+      darkBadgeColor: "dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/30",
     },
   ]
 
@@ -513,7 +561,23 @@ export default function SongSeekApp() {
     }
     setFeedback("");
     setIsConverting(true);
-    setShowProgress(true);
+    setShowProgress(true); // Always show progress modal
+
+    // Robustly get the session for the target platform
+    let session: string | undefined = undefined;
+    if (playlistTarget === "spotify") session = localStorage.getItem("spotify_session") || undefined;
+    else if (playlistTarget === "ytmusic") session = localStorage.getItem("yt_session") || undefined;
+    else if (playlistTarget === "deezer") session = localStorage.getItem("deezer_session") || undefined;
+    else if (playlistTarget === "applemusic") session = localStorage.getItem("apple_session") || undefined;
+    // fallback: try all
+    if (!session) session = localStorage.getItem("spotify_session") || localStorage.getItem("yt_session") || localStorage.getItem("deezer_session") || localStorage.getItem("apple_session") || undefined;
+    if (!session) {
+      setIsConverting(false);
+      setShowProgress(false);
+      showDetailedFeedback("login_expired", playlistTarget, false);
+      return;
+    }
+    setCurrentSession(session); // Always set currentSession
 
     // Track conversion start
     const conversionId = `playlist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -589,6 +653,8 @@ export default function SongSeekApp() {
         });
         
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
+        // Always use the session you passed in for polling
+        setCurrentSession(conversionResponse.session || session);
       }
       // Apple Music to YouTube Music conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "ytmusic") {
@@ -602,6 +668,7 @@ export default function SongSeekApp() {
         });
         
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
+        setCurrentSession(conversionResponse.session || ytSession);
       }
       // Apple Music to Deezer conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "deezer") {
@@ -629,29 +696,26 @@ export default function SongSeekApp() {
       }
       // Amazon Music to Spotify conversion
       else if (sourcePlatform === "amazonmusic" && playlistTarget === "spotify") {
-        const session = localStorage.getItem("spotify_session");
+        const session = localStorage.getItem("spotify_session") || undefined;
         if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
-        
         setCurrentSession(session);
-        
         eventSource = listenToProgress(session, (progress) => {
           console.log("Progress:", progress);
         });
-        
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
+        // Always use the session you passed in for polling
+        setCurrentSession(conversionResponse.session || session);
       }
       // Amazon Music to YouTube Music conversion
       else if (sourcePlatform === "amazonmusic" && playlistTarget === "ytmusic") {
-        const ytSession = localStorage.getItem("yt_session");
+        const ytSession = localStorage.getItem("yt_session") || undefined;
         if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
-        
         setCurrentSession(ytSession);
-        
         eventSource = listenToProgress(ytSession, (progress) => {
           console.log("Progress:", progress);
         });
-        
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
+        setCurrentSession(conversionResponse.session || ytSession);
       }
       // Amazon Music to Deezer conversion
       else if (sourcePlatform === "amazonmusic" && playlistTarget === "deezer") {
@@ -663,29 +727,25 @@ export default function SongSeekApp() {
       }
       // Tidal to Spotify conversion
       else if (sourcePlatform === "tidal" && playlistTarget === "spotify") {
-        const session = localStorage.getItem("spotify_session");
+        const session = localStorage.getItem("spotify_session") || undefined;
         if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
-        
         setCurrentSession(session);
-        
         eventSource = listenToProgress(session, (progress) => {
           console.log("Progress:", progress);
         });
-        
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
+        setCurrentSession(conversionResponse.session || session);
       }
       // Tidal to YouTube Music conversion
       else if (sourcePlatform === "tidal" && playlistTarget === "ytmusic") {
-        const ytSession = localStorage.getItem("yt_session");
+        const ytSession = localStorage.getItem("yt_session") || undefined;
         if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
-        
         setCurrentSession(ytSession);
-        
         eventSource = listenToProgress(ytSession, (progress) => {
           console.log("Progress:", progress);
         });
-        
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
+        setCurrentSession(conversionResponse.session || ytSession);
       }
       // Tidal to Deezer conversion
       else if (sourcePlatform === "tidal" && playlistTarget === "deezer") {
@@ -1010,8 +1070,8 @@ export default function SongSeekApp() {
 
                     // Special handling for Deezer
                     if (selectedPlatform.id === "deezer") {
-                      return (
-                        <Button
+                    return (
+                      <Button
                           disabled
                           className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl bg-gray-400 text-white opacity-50 cursor-not-allowed"
                         >
@@ -1026,22 +1086,22 @@ export default function SongSeekApp() {
                       return (
                         <Button
                           onClick={() => handleLogin(getLoginPlatformKey(selectedPlatform.id))}
-                          disabled={isLoggedIn}
-                          className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
-                            isLoggedIn ? "opacity-90" : ""
-                          }`}
-                        >
-                          {isLoggedIn ? (
-                            <>
-                              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                              Connected to {selectedPlatform.name}
-                            </>
-                          ) : (
-                            <>
+                        disabled={isLoggedIn}
+                        className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
+                          isLoggedIn ? "opacity-90" : ""
+                        }`}
+                      >
+                        {isLoggedIn ? (
+                          <>
+                            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                            Connected to {selectedPlatform.name}
+                          </>
+                        ) : (
+                          <>
                               <span>Login to {selectedPlatform.name}</span>
-                            </>
-                          )}
-                        </Button>
+                          </>
+                        )}
+                      </Button>
                       );
                     }
                     // For unsupported platforms, show a disabled button or nothing
@@ -1250,7 +1310,11 @@ export default function SongSeekApp() {
                 setShowProgress(false);
                 setCurrentSession(undefined);
               }} 
-              session={currentSession}
+              session={currentSession
+                || localStorage.getItem("spotify_session") || undefined
+                || localStorage.getItem("yt_session") || undefined
+                || localStorage.getItem("deezer_session") || undefined
+                || localStorage.getItem("apple_session") || undefined}
               onProgressUpdate={(progress) => {
                 // If progress contains an error, stop polling and show error
                 if (progress && progress.error) {
@@ -1258,9 +1322,15 @@ export default function SongSeekApp() {
                   setCurrentSession(undefined);
                   setFeedback(progress.error);
                   setFeedbackType("error");
-                } else {
-                  console.log("Progress update:", progress);
+                  return;
                 }
+                // If progress is empty or indicates done, stop polling
+                if (!progress || Object.keys(progress).length === 0 || progress.stage === "Done") {
+                  setShowProgress(false);
+                  setCurrentSession(undefined);
+                  return;
+                }
+                console.log("Progress update:", progress);
               }}
               onViewResults={() => {
                 setShowProgress(false);
