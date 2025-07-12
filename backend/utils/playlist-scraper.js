@@ -71,19 +71,81 @@ export async function scrapeAmazonMusicPlaylist(url) {
 
   // Extract playlist metadata
   let metadata = null;
+  let playlistName = '';
   try {
-    metadata = await page.evaluate(() => {
+    // 1. Try to get the playlist name from the <h1> inside music-detail-header
+    playlistName = await page.evaluate(() => {
       const header = document.querySelector('music-detail-header');
-      if (!header) return null;
-      return {
-        name: header.getAttribute('primary-text') || header.getAttribute('headline') || '',
-        description: header.getAttribute('secondary-text') || '',
-        image: header.getAttribute('image-src') || '',
-        info: header.getAttribute('tertiary-text') || '',
-      };
+      if (header) {
+        const h1 = header.querySelector('h1[title]');
+        if (h1 && h1.getAttribute('title')) {
+          return h1.getAttribute('title').trim();
+        }
+      }
+      return '';
     });
+    
+    // Clean up the playlist name by removing common suffixes
+    if (playlistName) {
+      // Remove "Playlist en" and similar patterns
+      playlistName = playlistName.replace(/\s*Playlist\s+en\s*$/i, '');
+      // Remove other common Amazon Music suffixes
+      playlistName = playlistName.replace(/\s*en\s+Amazon\s+Music\s*(Unlimited)?\s*$/i, '');
+      playlistName = playlistName.replace(/\s*on\s+Amazon\s+Music\s*(Unlimited)?\s*$/i, '');
+      playlistName = playlistName.trim();
+    }
+    
+    // 2. Fallback to headline/primary-text attributes
+    if (!playlistName) {
+      metadata = await page.evaluate(() => {
+        const header = document.querySelector('music-detail-header');
+        if (!header) return null;
+        return {
+          name: header.getAttribute('headline') || header.getAttribute('primary-text') || '',
+          description: header.getAttribute('secondary-text') || '',
+          image: header.getAttribute('image-src') || '',
+          info: header.getAttribute('tertiary-text') || '',
+        };
+      });
+      if (metadata && metadata.name) {
+        playlistName = metadata.name.trim();
+        // Clean up the playlist name
+        playlistName = playlistName.replace(/\s*Playlist\s+en\s*$/i, '');
+        playlistName = playlistName.replace(/\s*en\s+Amazon\s+Music\s*(Unlimited)?\s*$/i, '');
+        playlistName = playlistName.replace(/\s*on\s+Amazon\s+Music\s*(Unlimited)?\s*$/i, '');
+        playlistName = playlistName.trim();
+      }
+    }
+    // 3. Fallback to <title> tag
+    if (!playlistName) {
+      playlistName = await page.title();
+      // Remove trailing 'en Amazon Music Unlimited' or similar
+      playlistName = playlistName.replace(/\s*([|\-])?\s*Amazon Music( Unlimited)?$/i, '').trim();
+      // Also remove "Playlist en" from title
+      playlistName = playlistName.replace(/\s*Playlist\s+en\s*$/i, '');
+      playlistName = playlistName.trim();
+    }
+    // 4. Fallback to meta[name=description]
+    if (!playlistName) {
+      playlistName = await page.evaluate(() => {
+        const meta = document.querySelector('meta[name="description"]');
+        if (meta && meta.content) {
+          // Try to extract playlist name from description, e.g. '... la lista de reproducción REDISCOVER: The ’60s ...'
+          const match = meta.content.match(/lista de reproducción ([^\s]+.*?)( con Amazon Music|$)/i);
+          if (match && match[1]) return match[1].trim();
+          return meta.content.trim();
+        }
+        return '';
+      });
+    }
+    // 5. Fallback to default
+    if (!playlistName) {
+      playlistName = 'Amazon Music Playlist';
+      console.warn('[SongSeek] Fallback: Could not extract Amazon Music playlist name, using default.');
+    }
   } catch (e) {
-    metadata = null;
+    playlistName = 'Amazon Music Playlist';
+    console.warn('[SongSeek] Exception extracting Amazon Music playlist name, using default:', e);
   }
 
   // Extract tracks (title, artist, album, image, trackUrl)
@@ -107,7 +169,7 @@ export async function scrapeAmazonMusicPlaylist(url) {
     })
   );
   await browser.close();
-  return { tracks, metadata };
+  return { tracks, metadata: { ...metadata, name: playlistName } };
 }
 
 export async function scrapeYouTubeMusicPlaylist(url) {
