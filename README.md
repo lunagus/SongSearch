@@ -73,7 +73,6 @@ SongSeek converts your entire music library between Spotify, YouTube Music, Deez
 - **Tidal**: Import playlists and tracks via web scraping (no export due to reliability issues)
 - **Amazon Music**: Import playlists and tracks via web scraping (no export due to reliability issues)
 
-> **Reliability Focus**: We removed Tidal and Amazon Music as output targets because their search APIs are unreliable. However, you can still convert FROM these platforms TO the more reliable ones (Spotify, YouTube Music, Deezer, Apple Music).
 
 ---
 
