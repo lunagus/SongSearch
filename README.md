@@ -4,7 +4,9 @@
 
 ## 💭 WHY?
 
-I got tired of trying to find a suitable tool that would let me convert my big Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I created a fast, free, no-nonsense solution with rich UX and real-time tracking to quickly convert music track links and playlists from one platform to another. SongSeek converts your entire music library between Spotify, YouTube Music, Deezer, and Apple Music with high accuracy, fetching metadata from the source link and redirecting users to the equivalent track or created playlist on the target platform.
+I got tired of trying to find a suitable tool that would let me convert my big Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I created a fast, free, no-nonsense solution with rich UX and real-time tracking to quickly convert music track links and playlists from one platform to another. 
+
+SongSeek converts your entire music library between Spotify, YouTube Music, Deezer, and Apple Music with high accuracy, fetching metadata from the source link and redirecting users to the equivalent track or created playlist on the target platform.
 
 ---
 
@@ -29,10 +31,10 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 |------------|-----------|
 | Deezer → Spotify | ✅ |
 | Spotify → YouTube Music | ✅ |
-| YouTube → Spotify | ✅ |
-| Apple Music → Spotify / YouTube | ✅ |
-
-> 🔹 **Note**: Deezer playlist creation requires OAuth authentication, but Deezer's developer portal is temporarily closed for new applications. Track conversion to Deezer still works!
+| YouTube Music → Spotify | ✅ |
+| Apple Music → Spotify / YouTube Music | ✅ |
+| Tidal → Spotify / YouTube Music / Deezer | ✅ |
+| Amazon Music → Spotify / YouTube Music / Deezer | ✅ |
 
 ### 🎧 Track-by-Track Conversion
 - One-click track conversions between all platforms
@@ -41,9 +43,9 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 
 ### 🛠 Advanced
 - Manual search + batch fix for failed matches
-- OAuth with auto-refresh for Spotify & YouTube
+- OAuth with auto-refresh for Spotify & YouTube Music
 - Persistent session + progress tracking
-- Multi-platform search (Spotify, Deezer, YouTube, Apple Music)
+- Multi-platform search (Spotify, Deezer, YouTube Music, Apple Music, Tidal, Amazon Music)
 - Admin dashboard with conversion analytics
 
 ---
@@ -53,11 +55,14 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 | Platform         | Import Playlist | Export Playlist | Track Conversion | Search | OAuth |
 |------------------|------------------|------------------|------------------|--------|-------|
 | Spotify          | ✅               | ✅               | ✅               | ✅     | ✅    |
-| Deezer           | ✅               | ⏳               | ✅               | ✅     | 🔄    |
 | YouTube Music    | ✅               | ✅               | ✅               | ✅     | ✅    |
+| Deezer           | ✅               | ⏳               | ✅               | ✅     | 🔄    |
 | Apple Music      | ✅ (scrape)      | ❌               | ✅               | ✅     | ❌    |
-| SoundCloud       | 🔄               | ❌               | 🔄               | 🔄     | 🔄    |
+| Tidal            | ✅ (scrape)      | ❌               | ❌               | ❌     | ❌    |
+| Amazon Music     | ✅ (scrape)      | ❌               | ❌               | ❌     | ❌    |
+
 > 🔹 Note: YouTube Music has quota limits — large conversions may exhaust daily tokens.
+
 > 🔹 Deezer Status: Playlist export requires OAuth, but Deezer's developer portal is temporarily closed for new applications. Track conversion and search work via public API.
 
 ### **What This Means:**
@@ -65,9 +70,10 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 - **YouTube Music**: Full bidirectional support with OAuth authentication
 - **Deezer**: Import playlists and convert tracks (export blocked by developer portal closure)
 - **Apple Music**: Import playlists via web scraping, convert individual tracks
-- **SoundCloud**: Coming soon with full integration
+- **Tidal**: Import playlists and tracks via web scraping (no export due to reliability issues)
+- **Amazon Music**: Import playlists and tracks via web scraping (no export due to reliability issues)
 
-> API Limitations means restriction of features.
+> **Reliability Focus**: We removed Tidal and Amazon Music as output targets because their search APIs are unreliable. However, you can still convert FROM these platforms TO the more reliable ones (Spotify, YouTube Music, Deezer, Apple Music).
 
 ---
 
@@ -91,7 +97,6 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 
 | Feature                    | Status        |
 |----------------------------|---------------|
-| SoundCloud Integration     | 🛠 In Progress |
 | Deezer Export w/ OAuth     | ⏳ In Progress |
 | Apple Music Export         | 🧩 Researching |
 | Bulk Upload via File       | 🔜 Planned     |
@@ -108,6 +113,7 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 | Playlist stuck or incomplete| Refresh; large lists may take time                                       |
 | Token expired               | Handled automatically with token refresh                                 |
 | Apple Music issues          | Try a different link or refresh if scraping fails                       |
+| Tidal/Amazon Music issues   | Web scraping may fail if site structure changes                         |
 
 ---
 

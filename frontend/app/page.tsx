@@ -30,9 +30,21 @@ import { useTheme } from "next-themes"
 import { PlatformBadge } from "@/components/platform-badge"
 import { DragDropZone } from "@/components/drag-drop-zone"
 import { TrackResultDisplay } from "@/components/track-result-display"
+import { MusicWaveAnimation } from "@/components/music-wave-animation"
+import { FeedbackModal } from "@/components/feedback-modal"
 import { trackEvent, trackConversion, trackError } from "@/lib/analytics"
 import type { JSX } from "react/jsx-runtime"
-import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertSpotifyToDeezer, convertYouTubeToSpotify, convertYouTubeToDeezer, listenToProgress, getConversionResults, convertTrack, convertAppleMusicPlaylist } from "@/lib/api";
+import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertSpotifyToDeezer, convertYouTubeToSpotify, convertYouTubeToDeezer, listenToProgress, getConversionResults, convertTrack, convertWebPlaylist } from "@/lib/api";
+import {
+  SpotifyIcon,
+  YouTubeMusicIcon,
+  DeezerIcon,
+  AppleMusicIcon,
+  TidalIcon,
+  AmazonMusicIcon,
+  GitHubIcon,
+  BuyMeACoffeeIcon,
+} from "@/components/platform-icons"
 
 // Lazy load heavy components for better performance
 const ConversionProgress = lazy(() =>
@@ -48,7 +60,6 @@ interface LoginStatus {
   youtube: boolean
   deezer: boolean
   appleMusic: boolean
-  soundcloud: boolean
 }
 
 interface ConversionResult {
@@ -89,7 +100,6 @@ export default function SongSeekApp() {
     youtube: false,
     deezer: false,
     appleMusic: false,
-    soundcloud: false,
   })
   const [isConverting, setIsConverting] = useState(false)
   const [feedback, setFeedback] = useState("")
@@ -105,6 +115,7 @@ export default function SongSeekApp() {
   const trackResultRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
   const { theme, setTheme } = useTheme()
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -150,7 +161,6 @@ export default function SongSeekApp() {
       youtube: localStorage.getItem("yt_session"),
       deezer: localStorage.getItem("deezer_session"),
       appleMusic: localStorage.getItem("apple_session"),
-      soundcloud: localStorage.getItem("soundcloud_session"),
     }
 
     setLoginStatus({
@@ -158,7 +168,6 @@ export default function SongSeekApp() {
       youtube: !!sessions.youtube,
       deezer: !!sessions.deezer,
       appleMusic: !!sessions.appleMusic,
-      soundcloud: !!sessions.soundcloud,
     })
 
     // Track connected platforms
@@ -196,11 +205,11 @@ export default function SongSeekApp() {
     {
       id: "deezer",
       name: "Deezer",
-      icon: "music",
-      color: "bg-orange-600",
-      hoverColor: "hover:bg-orange-700",
-      badgeColor: "bg-orange-500/20 text-orange-700 border-orange-300/50",
-      darkBadgeColor: "dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/30",
+      icon: "deezer",
+      color: "bg-[#9F47FF]",
+      hoverColor: "hover:bg-[#8a2be2]",
+      badgeColor: "bg-[#9F47FF]/20 text-[#9F47FF] border-[#9F47FF]/30",
+      darkBadgeColor: "dark:bg-[#9F47FF]/10 dark:text-[#9F47FF] dark:border-[#9F47FF]/30",
     },
     {
       id: "applemusic",
@@ -211,15 +220,6 @@ export default function SongSeekApp() {
       badgeColor: "bg-gray-500/20 text-gray-700 border-gray-300/50",
       darkBadgeColor: "dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30",
     },
-    {
-      id: "soundcloud",
-      name: "SoundCloud",
-      icon: "cloud",
-      color: "bg-orange-400",
-      hoverColor: "hover:bg-orange-500",
-      badgeColor: "bg-orange-400/20 text-orange-600 border-orange-200/50",
-      darkBadgeColor: "dark:bg-orange-400/10 dark:text-orange-300 dark:border-orange-400/30",
-    },
   ]
 
   const detectPlatform = (link: string): string | null => {
@@ -227,7 +227,8 @@ export default function SongSeekApp() {
     if (/youtube\.com|youtu\.be/.test(link)) return "ytmusic"
     if (/deezer\.com/.test(link)) return "deezer"
     if (/music\.apple\.com/.test(link)) return "applemusic"
-    if (/soundcloud\.com/.test(link)) return "soundcloud"
+    if (/tidal\.com|listen\.tidal\.com/.test(link)) return "tidal"
+    if (/music\.amazon\.com|amazon\.com\/music/.test(link)) return "amazonmusic"
     return null
   }
 
@@ -402,13 +403,13 @@ export default function SongSeekApp() {
     }
 
     // Check if target platform is supported for track conversion
-    const supportedPlatforms = ["spotify", "deezer", "ytmusic", "applemusic"]
+    const supportedPlatforms = ["spotify", "deezer", "ytmusic", "applemusic", "tidal", "amazonmusic"]
     if (!supportedPlatforms.includes(trackTarget)) {
       showDetailedFeedback("invalid_link")
       toast({
         variant: "destructive",
         title: "Unsupported Platform",
-        description: `Track conversion to ${trackTarget} is not yet supported. Please use Spotify, Deezer, YouTube Music, or Apple Music.`,
+        description: `Track conversion to ${trackTarget} is not yet supported. Please use Spotify, Deezer, YouTube Music, Apple Music, Tidal, or Amazon Music.`,
       })
       return
     }
@@ -430,8 +431,8 @@ export default function SongSeekApp() {
     try {
       const result = await convertTrack(trackLink, trackTarget)
       
-      setIsConverting(false)
-      
+        setIsConverting(false)
+
       if (result.success) {
         // Track successful conversion
         trackConversion("completed", {
@@ -461,16 +462,16 @@ export default function SongSeekApp() {
         throw new Error("Conversion failed: No success response received")
       }
     } catch (err: any) {
-      setIsConverting(false)
-      
+        setIsConverting(false)
+
       // Track failed conversion
       trackConversion("failed", {
-        conversion_id: conversionId,
+          conversion_id: conversionId,
         error: err.message,
-        source_platform: sourcePlatform,
-        target_platform: trackTarget,
-        timestamp: new Date().toISOString(),
-      })
+          source_platform: sourcePlatform,
+          target_platform: trackTarget,
+          timestamp: new Date().toISOString(),
+        })
 
       // Show appropriate error message
       if (err.message.includes("No match found")) {
@@ -587,7 +588,7 @@ export default function SongSeekApp() {
           console.log("Progress:", progress);
         });
         
-        conversionResponse = await convertAppleMusicPlaylist(playlistLink, "spotify", session);
+        conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
       }
       // Apple Music to YouTube Music conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "ytmusic") {
@@ -600,7 +601,7 @@ export default function SongSeekApp() {
           console.log("Progress:", progress);
         });
         
-        conversionResponse = await convertAppleMusicPlaylist(playlistLink, "ytmusic", ytSession);
+        conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
       }
       // Apple Music to Deezer conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "deezer") {
@@ -626,6 +627,74 @@ export default function SongSeekApp() {
         });
         throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
       }
+      // Amazon Music to Spotify conversion
+      else if (sourcePlatform === "amazonmusic" && playlistTarget === "spotify") {
+        const session = localStorage.getItem("spotify_session");
+        if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
+        
+        setCurrentSession(session);
+        
+        eventSource = listenToProgress(session, (progress) => {
+          console.log("Progress:", progress);
+        });
+        
+        conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
+      }
+      // Amazon Music to YouTube Music conversion
+      else if (sourcePlatform === "amazonmusic" && playlistTarget === "ytmusic") {
+        const ytSession = localStorage.getItem("yt_session");
+        if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
+        
+        setCurrentSession(ytSession);
+        
+        eventSource = listenToProgress(ytSession, (progress) => {
+          console.log("Progress:", progress);
+        });
+        
+        conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
+      }
+      // Amazon Music to Deezer conversion
+      else if (sourcePlatform === "amazonmusic" && playlistTarget === "deezer") {
+        toast({
+          title: "Deezer Playlist Creation Temporarily Unavailable",
+          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        });
+        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+      }
+      // Tidal to Spotify conversion
+      else if (sourcePlatform === "tidal" && playlistTarget === "spotify") {
+        const session = localStorage.getItem("spotify_session");
+        if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
+        
+        setCurrentSession(session);
+        
+        eventSource = listenToProgress(session, (progress) => {
+          console.log("Progress:", progress);
+        });
+        
+        conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
+      }
+      // Tidal to YouTube Music conversion
+      else if (sourcePlatform === "tidal" && playlistTarget === "ytmusic") {
+        const ytSession = localStorage.getItem("yt_session");
+        if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
+        
+        setCurrentSession(ytSession);
+        
+        eventSource = listenToProgress(ytSession, (progress) => {
+          console.log("Progress:", progress);
+        });
+        
+        conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
+      }
+      // Tidal to Deezer conversion
+      else if (sourcePlatform === "tidal" && playlistTarget === "deezer") {
+        toast({
+          title: "Deezer Playlist Creation Temporarily Unavailable",
+          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        });
+        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+      }
       else {
         throw new Error(`Conversion from ${sourcePlatform} to ${playlistTarget} is not yet implemented.`);
       }
@@ -640,13 +709,13 @@ export default function SongSeekApp() {
 
       if (conversionResponse && conversionResponse.success) {
         // Track successful conversion
-        trackConversion("completed", {
-          conversion_id: conversionId,
-          type: "playlist",
-          source_platform: sourcePlatform,
-          target_platform: playlistTarget,
+      trackConversion("completed", {
+        conversion_id: conversionId,
+        type: "playlist",
+        source_platform: sourcePlatform,
+        target_platform: playlistTarget,
           success_rate: 100,
-          timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         });
 
         // Fetch conversion results
@@ -673,7 +742,12 @@ export default function SongSeekApp() {
       timestamp: new Date().toISOString(),
       });
 
-      setFeedback(err.message || "Error during conversion");
+      // Check if this is a resolver error with debug information
+      if (err.message && err.message.includes('No tracks found')) {
+        setFeedback(`Amazon Music playlist error: ${err.message}. This usually means the playlist is private, empty, or Amazon Music has changed their page structure. Try using a public playlist with tracks.`);
+      } else {
+        setFeedback(err.message || "Error during conversion");
+      }
       setFeedbackType("error");
       
       toast({
@@ -716,15 +790,18 @@ export default function SongSeekApp() {
     }
   }
 
+  const platformIcons = {
+    spotify: SpotifyIcon,
+    ytmusic: YouTubeMusicIcon,
+    deezer: DeezerIcon,
+    applemusic: AppleMusicIcon,
+    tidal: TidalIcon,
+    amazonmusic: AmazonMusicIcon,
+  }
+
   const getPlatformIcon = (platform: string) => {
-    const icons = {
-      spotify: <Music className="h-4 w-4" />,
-      ytmusic: <Play className="h-4 w-4" />,
-      deezer: <Headphones className="h-4 w-4" />,
-      applemusic: <Apple className="h-4 w-4" />,
-      soundcloud: <Cloud className="h-4 w-4" />,
-    }
-    return icons[platform as keyof typeof icons] || <Music className="h-4 w-4" />
+    const Icon = platformIcons[platform as keyof typeof platformIcons]
+    return Icon ? <Icon className="h-4 w-4" /> : null
   }
 
   const getSelectedPlatform = () => {
@@ -764,53 +841,18 @@ export default function SongSeekApp() {
     })
   }
 
+  const getLoginPlatformKey = (platformId: string) => {
+    if (platformId === "ytmusic") return "youtube";
+    return platformId;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-colors duration-300">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-6xl">
-        {/* Header with Dark Mode Toggle and Help */}
-        <div className="flex flex-col lg:flex-row items-center justify-between mb-8 sm:mb-12 gap-6 lg:gap-0">
-          <div className="text-center flex-1 w-full lg:w-auto">
-            {/* Enhanced Logo */}
-            <div className="flex items-center justify-center gap-3 mb-6 sm:mb-8">
-              <div className="relative">
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl shadow-2xl">
-                  <div className="relative">
-                    <Music className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
-                    <div className="absolute -top-1 -right-1 p-1 bg-yellow-400 rounded-full animate-pulse">
-                      <Radio className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-800" />
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 rounded-2xl blur-xl opacity-30 animate-pulse"></div>
-              </div>
-            </div>
-
-            {/* Enhanced Title */}
-            <div className="space-y-4 sm:space-y-6">
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-                SongSeek
-              </h1>
-              <div className="space-y-2 sm:space-y-3">
-                <p className="text-lg sm:text-xl lg:text-2xl text-gray-600 dark:text-gray-300 font-medium">
-                  Convert music playlists between platforms seamlessly
-                </p>
-                <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-                  Transform your entire music collection with AI-powered intelligent matching across all major streaming
-                  platforms
-                </p>
-              </div>
-            </div>
-
-            {/* Enhanced Platform Badges - Properly Centered */}
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8 px-4">
-              {platforms.map((platform) => (
-                <PlatformBadge key={platform.id} platform={platform} />
-              ))}
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center gap-3 sm:gap-4 lg:flex-col lg:items-end">
+        {/* Main Header Content - Centered */}
+        <div className="text-center mb-8 sm:mb-12 relative min-h-[200px] sm:min-h-[250px]">
+          {/* Controls - Overlay on top-right (Desktop Only) */}
+          <div className="absolute top-0 right-0 hidden sm:flex items-center gap-3 sm:gap-4 z-20">
             {/* Help Button */}
             <Button
               variant="outline"
@@ -826,10 +868,33 @@ export default function SongSeekApp() {
             <div className="flex items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
               <Sun className="h-4 w-4 text-gray-600 dark:text-gray-400" />
               {mounted && (
-                <Switch checked={theme === "dark"} onCheckedChange={handleThemeChange} />
+              <Switch checked={theme === "dark"} onCheckedChange={handleThemeChange} />
               )}
               <Moon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             </div>
+          </div>
+
+          {/* Enhanced Title */}
+          <div className="space-y-4 sm:space-y-6 pt-4 relative z-10">
+            <div className="relative max-w-4xl mx-auto px-4">
+              {/* Music Wave Animation - Behind Title */}
+              <MusicWaveAnimation className="z-0" />
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight pb-2 sm:pb-4 relative z-10">
+                SongSeek
+              </h1>
+            </div>
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-lg sm:text-xl lg:text-2xl text-gray-500 dark:text-gray-400 font-medium">
+                Convert music playlists between platforms seamlessly
+              </p>
+            </div>
+          </div>
+
+          {/* Enhanced Platform Badges - Properly Centered */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 sm:mt-8 relative z-10">
+            {platforms.map((platform) => (
+              <PlatformBadge key={platform.id} platform={platform} />
+            ))}
           </div>
         </div>
 
@@ -852,7 +917,7 @@ export default function SongSeekApp() {
         <div className="space-y-6 sm:space-y-8">
           {/* Main Playlist Conversion - Hero Section */}
           <Card className="shadow-2xl border-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm overflow-hidden">
-            <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6 lg:px-8">
+            <CardHeader className="pb-6 sm:pb-8 px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                 <div className="p-2 sm:p-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl shadow-lg">
                   <Music className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
@@ -861,22 +926,22 @@ export default function SongSeekApp() {
                   <CardTitle className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white">
                     Convert Playlist
                   </CardTitle>
-                  <CardDescription className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mt-1 sm:mt-2">
+                  <CardDescription className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mt-2 sm:mt-3">
                     Transform your entire music collection between platforms with intelligent matching
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8">
+            <CardContent className="space-y-8 sm:space-y-10 px-4 sm:px-6 lg:px-8 pb-8 sm:pb-10">
               {/* Playlist Link Input */}
-              <div className="space-y-3 sm:space-y-4">
+              <div className="space-y-4 sm:space-y-5">
                 <Label
                   htmlFor="playlist-link"
-                  className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"
+                  className="text-lg font-semibold text-gray-900 dark:text-white"
                 >
                   Playlist Link
                 </Label>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex gap-3">
                   <Input
                     id="playlist-link"
                     placeholder="Paste your playlist link here..."
@@ -896,11 +961,11 @@ export default function SongSeekApp() {
               </div>
 
               {/* Platform Selection and Login */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                <div className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10">
+                <div className="space-y-4 sm:space-y-5">
                   <Label
                     htmlFor="playlist-target"
-                    className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white"
+                    className="text-lg font-semibold text-gray-900 dark:text-white"
                   >
                     Convert to
                   </Label>
@@ -909,7 +974,7 @@ export default function SongSeekApp() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {platforms.map((platform) => (
+                      {platforms.filter(platform => ["spotify", "ytmusic", "deezer"].includes(platform.id)).map((platform) => (
                         <SelectItem 
                           key={platform.id} 
                           value={platform.id} 
@@ -919,7 +984,7 @@ export default function SongSeekApp() {
                           disabled={platform.id === "deezer"}
                         >
                           <div className="flex items-center gap-3">
-                            {getPlatformIcon(platform.icon)}
+                            {getPlatformIcon(platform.id)}
                             <span>{platform.name}</span>
                             {platform.id === "deezer" && (
                               <span className="text-xs text-orange-600 dark:text-orange-400 ml-auto">
@@ -933,8 +998,8 @@ export default function SongSeekApp() {
                   </Select>
                 </div>
 
-                <div className="space-y-3 sm:space-y-4">
-                  <Label className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                <div className="space-y-4 sm:space-y-5">
+                  <Label className="text-lg font-semibold text-gray-900 dark:text-white">
                     Platform Access
                   </Label>
                   {(() => {
@@ -956,27 +1021,42 @@ export default function SongSeekApp() {
                       )
                     }
 
-                    return (
-                      <Button
-                        onClick={() => handleLogin(selectedPlatform.id)}
-                        disabled={isLoggedIn}
-                        className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
-                          isLoggedIn ? "opacity-90" : ""
-                        }`}
-                      >
-                        {isLoggedIn ? (
-                          <>
-                            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                            Connected to {selectedPlatform.name}
-                          </>
-                        ) : (
-                          <>
-                            {getPlatformIcon(selectedPlatform.icon)}
-                            <span className="ml-2 sm:ml-3">Login to {selectedPlatform.name}</span>
-                          </>
-                        )}
-                      </Button>
-                    )
+                    // In the login button rendering logic:
+                    if (["spotify", "ytmusic", "deezer"].includes(selectedPlatform.id)) {
+                      return (
+                        <Button
+                          onClick={() => handleLogin(getLoginPlatformKey(selectedPlatform.id))}
+                          disabled={isLoggedIn}
+                          className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
+                            isLoggedIn ? "opacity-90" : ""
+                          }`}
+                        >
+                          {isLoggedIn ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                              Connected to {selectedPlatform.name}
+                            </>
+                          ) : (
+                            <>
+                              <span>Login to {selectedPlatform.name}</span>
+                            </>
+                          )}
+                        </Button>
+                      );
+                    }
+                    // For unsupported platforms, show a disabled button or nothing
+                    if (["applemusic", "tidal", "amazonmusic"].includes(selectedPlatform.id)) {
+                      return (
+                        <Button
+                          disabled
+                          className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl bg-gray-400 text-white opacity-50 cursor-not-allowed"
+                        >
+                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                          {selectedPlatform.name} Login Unavailable
+                        </Button>
+                      );
+                    }
+                    return null;
                   })()}
                 </div>
               </div>
@@ -984,7 +1064,7 @@ export default function SongSeekApp() {
               {/* Convert Button */}
               <Button
                 onClick={handlePlaylistConvert}
-                className="w-full h-14 sm:h-16 lg:h-20 text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-700 hover:via-pink-700 hover:to-purple-800 shadow-2xl hover:shadow-3xl rounded-xl transition-all duration-300 transform hover:scale-[1.02]"
+                className="w-full h-14 sm:h-16 lg:h-20 text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-700 hover:via-pink-700 hover:to-purple-800 shadow-2xl hover:shadow-3xl rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:brightness-110"
                 disabled={isConverting}
               >
                 {isConverting ? (
@@ -994,14 +1074,13 @@ export default function SongSeekApp() {
                   </>
                 ) : (
                   <>
-                    <Music className="mr-3 sm:mr-4 h-6 w-6 sm:h-7 sm:w-7" />
                     Convert Playlist
                   </>
                 )}
               </Button>
 
               {/* Drag Drop Zone for Playlist */}
-              <DragDropZone onDrop={handleDrop} className="mt-6 sm:mt-8" />
+              <DragDropZone onDrop={handleDrop} className="mt-8 sm:mt-10" />
             </CardContent>
           </Card>
 
@@ -1022,12 +1101,12 @@ export default function SongSeekApp() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
-              <div className="space-y-2 sm:space-y-3">
-                <Label htmlFor="track-link" className="text-base font-medium">
+            <CardContent className="space-y-6 sm:space-y-8 px-4 sm:px-6 lg:px-8">
+              <div className="space-y-4 sm:space-y-5">
+                <Label htmlFor="track-link" className="text-lg font-semibold text-gray-900 dark:text-white">
                   Track Link
                 </Label>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <Input
                     id="track-link"
                     placeholder="Paste a music track link..."
@@ -1046,8 +1125,8 @@ export default function SongSeekApp() {
                 </div>
               </div>
 
-              <div className="space-y-2 sm:space-y-3">
-                <Label htmlFor="track-target" className="text-base font-medium">
+              <div className="space-y-4 sm:space-y-5">
+                <Label htmlFor="track-target" className="text-lg font-semibold text-gray-900 dark:text-white">
                   Convert to
                 </Label>
                 <Select value={trackTarget} onValueChange={(value) => handlePlatformChange(value, "track")}>
@@ -1061,9 +1140,10 @@ export default function SongSeekApp() {
                         const colorMap: Record<string, string> = {
                           spotify: "border-green-300 dark:border-green-600 focus:border-green-500 dark:focus:border-green-400 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-300",
                           ytmusic: "border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-300",
-                          deezer: "border-orange-300 dark:border-orange-600 focus:border-orange-500 dark:focus:border-orange-400 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-300",
+                          deezer: "border-[#9F47FF] dark:border-[#9F47FF] focus:border-[#9F47FF] dark:focus:border-[#9F47FF] bg-[#9F47FF]/10 dark:bg-[#9F47FF]/20 text-[#9F47FF] dark:text-[#9F47FF]",
                           applemusic: "border-gray-400 dark:border-gray-500 focus:border-gray-600 dark:focus:border-gray-400 bg-gray-50 dark:bg-gray-950/20 text-gray-700 dark:text-gray-300",
-                          soundcloud: "border-orange-300 dark:border-orange-500 focus:border-orange-400 dark:focus:border-orange-300 bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-300",
+                          tidal: "border-cyan-300 dark:border-cyan-600 focus:border-cyan-500 dark:focus:border-cyan-400 bg-cyan-50 dark:bg-cyan-950/20 text-cyan-700 dark:text-cyan-300",
+                          amazonmusic: "border-orange-300 dark:border-orange-500 focus:border-orange-400 dark:focus:border-orange-300 bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-300",
                         }
                         return colorMap[trackTarget] || "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                       })()
@@ -1084,16 +1164,17 @@ export default function SongSeekApp() {
                               const hoverColorMap: Record<string, string> = {
                                 spotify: "hover:bg-green-100 dark:hover:bg-green-900/30 hover:text-green-700 dark:hover:text-green-300",
                                 ytmusic: "hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300",
-                                deezer: "hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300",
+                                deezer: "hover:bg-[#9F47FF]/20 dark:hover:bg-[#9F47FF]/30 hover:text-[#9F47FF] dark:hover:text-[#9F47FF]",
                                 applemusic: "hover:bg-gray-100 dark:hover:bg-gray-900/30 hover:text-gray-700 dark:hover:text-gray-300",
-                                soundcloud: "hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600 dark:hover:text-orange-300",
+                                tidal: "hover:bg-cyan-100 dark:hover:bg-cyan-900/30 hover:text-cyan-700 dark:hover:text-cyan-300",
+                                amazonmusic: "hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:text-orange-600 dark:hover:text-orange-300",
                               }
                               return hoverColorMap[platform.id] || "hover:bg-gray-100 dark:hover:bg-gray-700"
                             })()
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          {getPlatformIcon(platform.icon)}
+                          {getPlatformIcon(platform.id)}
                           {platform.name}
                         </div>
                       </SelectItem>
@@ -1102,9 +1183,26 @@ export default function SongSeekApp() {
                 </Select>
               </div>
 
+              {/* Convert Button */}
               <Button
                 onClick={handleTrackConvert}
-                className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                className={`w-full h-12 sm:h-14 text-base sm:text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:brightness-110 ${
+                  (() => {
+                    const selectedPlatform = platforms.find(p => p.id === trackTarget)
+                    if (!selectedPlatform) return "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                    
+                    // Map platform colors to button gradients
+                    const buttonColorMap: Record<string, string> = {
+                      spotify: "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800",
+                      ytmusic: "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800",
+                      deezer: "bg-gradient-to-r from-[#9F47FF] to-[#7C2AE8] hover:from-[#7C2AE8] hover:to-[#9F47FF]",
+                      applemusic: "bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-900 hover:to-black",
+                      tidal: "bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800",
+                      amazonmusic: "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700",
+                    }
+                    return buttonColorMap[trackTarget] || "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                  })()
+                }`}
                 disabled={isConverting}
               >
                 {isConverting ? (
@@ -1114,7 +1212,6 @@ export default function SongSeekApp() {
                   </>
                 ) : (
                   <>
-                    <Music className="mr-2 sm:mr-3 h-4 w-4 sm:h-5 sm:w-5" />
                     Convert Track
                   </>
                 )}
@@ -1124,7 +1221,7 @@ export default function SongSeekApp() {
               <TrackResultDisplay 
                 ref={trackResultRef}
                 result={trackConversionResult} 
-                className="mt-4 sm:mt-6" 
+                className="mt-6 sm:mt-8" 
               />
             </CardContent>
           </Card>
@@ -1155,7 +1252,15 @@ export default function SongSeekApp() {
               }} 
               session={currentSession}
               onProgressUpdate={(progress) => {
-                console.log("Progress update:", progress);
+                // If progress contains an error, stop polling and show error
+                if (progress && progress.error) {
+                  setShowProgress(false);
+                  setCurrentSession(undefined);
+                  setFeedback(progress.error);
+                  setFeedbackType("error");
+                } else {
+                  console.log("Progress update:", progress);
+                }
               }}
               onViewResults={() => {
                 setShowProgress(false);
@@ -1190,7 +1295,57 @@ export default function SongSeekApp() {
             />
           )}
         </Suspense>
+
+        {/* Feedback Modal */}
+        <FeedbackModal
+          isOpen={showFeedbackModal}
+          onClose={() => setShowFeedbackModal(false)}
+        />
       </div>
+
+      {/* Footer */}
+      <footer className="border-t py-6 text-sm text-gray-500 text-center mt-12 sm:mt-16">
+        {/* Mobile Controls */}
+        <div className="flex items-center justify-center gap-3 mb-4 sm:hidden">
+          {/* Help Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={showOnboardingManually}
+            className="gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200/50 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200"
+          >
+            <HelpCircle className="h-4 w-4" />
+            <span>Help</span>
+          </Button>
+
+          {/* Dark Mode Toggle */}
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+            <Sun className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+            {mounted && (
+            <Switch checked={theme === "dark"} onCheckedChange={handleThemeChange} />
+            )}
+            <Moon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          </div>
+        </div>
+
+        {/* Footer Links */}
+        <p>
+          <a href="https://github.com/lunagus" className="underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors inline-flex items-center gap-1">
+            <GitHubIcon className="h-4 w-4" />
+            lunagus
+          </a> · 
+          <button 
+            onClick={() => setShowFeedbackModal(true)}
+            className="ml-2 underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors bg-transparent border-none cursor-pointer"
+          >
+            Send Feedback
+          </button> · 
+          <a href="https://coff.ee/lunagus" className="ml-2 underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors inline-flex items-center gap-1">
+            <BuyMeACoffeeIcon className="h-4 w-4" />
+            Donate
+          </a>
+        </p>
+      </footer>
     </div>
   )
 }

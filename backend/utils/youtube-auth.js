@@ -67,7 +67,7 @@ export async function refreshYouTubeAccessToken(refreshToken) {
   }
 
   return await response.json(); // contains new access_token
-}
+} 
 
 // Get YouTube access token for app-level authentication (fallback)
 export async function getYouTubeAccessToken() {

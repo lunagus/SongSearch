@@ -7,6 +7,8 @@ export function getOAuthUrl(platform: string) {
     case "spotify":
       return `${API_BASE_URL}/login`;
     case "youtube":
+    case "ytmusic":
+    case "yt":
       return `${API_BASE_URL}/youtube/login`;
     case "deezer":
       return `${API_BASE_URL}/deezer/login`;
@@ -160,8 +162,8 @@ export function listenToProgress(session: string, onProgress: (progress: any) =>
   return eventSource;
 } 
 
-// Convert Apple Music playlist to other platforms
-export async function convertAppleMusicPlaylist(link: string, targetPlatform: string, session?: string) {
+// Convert web-scraped playlists (Apple Music, Amazon Music, Tidal) to other platforms
+export async function convertWebPlaylist(link: string, targetPlatform: string, session?: string) {
   const params = new URLSearchParams({
     link: link,
     targetPlatform: targetPlatform
@@ -180,5 +182,11 @@ export async function convertAppleMusicPlaylist(link: string, targetPlatform: st
   }
   
   const data = await res.json();
+  
+  // Check if the response contains an error field (even with 200 status)
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  
   return data;
 } 

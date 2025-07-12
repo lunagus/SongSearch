@@ -60,32 +60,32 @@ export function DragDropZone({ onDrop, className }: DragDropZoneProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "border-2 border-dashed rounded-xl p-4 sm:p-6 lg:p-8 text-center transition-all duration-300 backdrop-blur-sm",
+        "border border-dashed rounded-lg p-3 sm:p-4 text-center transition-all duration-300 backdrop-blur-sm",
         isDragOver
-          ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/30 scale-[1.02] shadow-lg"
-          : "border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/30 hover:bg-gray-100/50 dark:hover:bg-gray-700/30",
+          ? "border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/30 scale-[1.02] shadow-lg"
+          : "border-gray-300 dark:border-gray-600 bg-gray-50/30 dark:bg-gray-800/20 hover:bg-gray-50 dark:hover:bg-gray-700/20 hover:border-indigo-400",
         className,
       )}
     >
-      <div className="flex flex-col items-center gap-3 sm:gap-4">
-        <div className="p-3 sm:p-4 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 shadow-inner">
-          <Upload className="h-6 w-6 sm:h-8 sm:w-8 text-gray-600 dark:text-gray-300" />
+      <div className="flex flex-col items-center gap-2 sm:gap-3">
+        <div className="p-2 sm:p-3 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 shadow-inner">
+          <Upload className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300" />
         </div>
-        <div className="space-y-1 sm:space-y-2">
-          <p className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Drop playlist links or files here
           </p>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Supports direct links, CSV, and TXT files
           </p>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6 mt-2">
-          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            <Link className="h-3 w-3 sm:h-4 sm:w-4" />
+        <div className="flex items-center gap-3 sm:gap-4 mt-1">
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <Link className="h-3 w-3" />
             <span>Links</span>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-            <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+          <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <FileText className="h-3 w-3" />
             <span>CSV/TXT</span>
           </div>
         </div>

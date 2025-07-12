@@ -6,6 +6,10 @@ import ytmusicResolver from './ytmusic-resolver.js';
 import resolveYouTubeVideoInfo from './youtube-resolver.js';
 import appleMusicResolver from './apple-music-resolver.js';
 import resolveAppleMusicPlaylist from './apple-music-playlist-resolver.js';
+import tidalResolver from './tidal-resolver.js';
+import amazonMusicResolver from './amazon-music-resolver.js';
+import resolveAmazonMusicPlaylist from './amazon-music-playlist-resolver.js';
+import resolveTidalPlaylist from './tidal-playlist-resolver.js';
 
 export async function resolveMetadata(link) {
   if (link.includes('deezer.com')) {
@@ -22,6 +26,12 @@ export async function resolveMetadata(link) {
   }
   if (link.includes('music.apple.com')) {
     return await appleMusicResolver(link);
+  }
+  if (link.includes('tidal.com') || link.includes('listen.tidal.com')) {
+    return await tidalResolver(link);
+  }
+  if (link.includes('music.amazon.com') || link.includes('amazon.com/music')) {
+    return await amazonMusicResolver(link);
   }
   throw new Error('Unsupported link format or platform');
 }
@@ -40,6 +50,12 @@ export async function resolvePlaylist(link) {
   }
   if (link.includes('music.apple.com') && link.includes('playlist')) {
     return await resolveAppleMusicPlaylist(link);
+  }
+  if (link.includes('music.amazon.com') && link.includes('playlist')) {
+    return await resolveAmazonMusicPlaylist(link);
+  }
+  if (link.includes('tidal.com') && link.includes('playlist')) {
+    return await resolveTidalPlaylist(link);
   }
   throw new Error('Unsupported playlist link format or platform');
 }

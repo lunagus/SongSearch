@@ -20,26 +20,65 @@ export default async function appleMusicMapper(metadata) {
       const track = data.results[0];
       
       // Return Apple Music URL
-      // Apple Music URLs use the format: https://music.apple.com/us/album/song-name/id{trackId}
+      // Apple Music URLs use the format: https://music.apple.com/us/album/album-name/id{albumId}?i={trackId}
+      // or for singles: https://music.apple.com/us/album/song-name/id{trackId}
+      
       const trackName = track.trackName || title;
       const albumName = track.collectionName || 'Unknown Album';
       const artistName = track.artistName || artist;
+      const trackId = track.trackId;
+      const collectionId = track.collectionId;
       
-      // Create a URL-friendly version of the track name
-      const urlSafeTrackName = trackName
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, '-');
+      // For foreign characters, we need a different approach
+      // Instead of trying to sanitize the name, we'll use a more robust strategy
+      let urlSafeName = '';
       
-      const urlSafeAlbumName = albumName
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, '-');
+      // Strategy 1: Try to use the collection name if it exists and is not "Unknown Album"
+      if (albumName && albumName !== 'Unknown Album') {
+        // Try to create a URL-safe version, but be more lenient
+        urlSafeName = albumName
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '') // Remove special characters but keep letters, numbers, spaces, and hyphens
+          .replace(/\s+/g, '-') // Replace spaces with hyphens
+          .replace(/-+/g, '-') // Replace multiple dashes with single dash
+          .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+      }
       
-      // Use the track ID from iTunes search result
-      const appleMusicUrl = `https://music.apple.com/us/album/${urlSafeTrackName}/${urlSafeAlbumName}/id${track.trackId}`;
+      // Strategy 2: If collection name didn't work, try track name
+      if (!urlSafeName && trackName) {
+        urlSafeName = trackName
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '') // Remove special characters but keep letters, numbers, spaces, and hyphens
+          .replace(/\s+/g, '-') // Replace spaces with hyphens
+          .replace(/-+/g, '-') // Replace multiple dashes with single dash
+          .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+      }
       
-      return appleMusicUrl;
+      // Strategy 3: If both failed, try artist name
+      if (!urlSafeName && artistName) {
+        urlSafeName = artistName
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '') // Remove special characters but keep letters, numbers, spaces, and hyphens
+          .replace(/\s+/g, '-') // Replace spaces with hyphens
+          .replace(/-+/g, '-') // Replace multiple dashes with single dash
+          .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+      }
+      
+      // Strategy 4: If all failed, use a generic name based on the track ID
+      if (!urlSafeName || urlSafeName.length === 0) {
+        // Use a generic name that includes the track ID to make it unique
+        urlSafeName = `track-${trackId}`;
+      }
+      
+      // If we have both collection ID and track ID, use the album format
+      if (collectionId && trackId) {
+        const appleMusicUrl = `https://music.apple.com/us/album/${urlSafeName}/id${collectionId}?i=${trackId}`;
+        return appleMusicUrl;
+      } else if (trackId) {
+        // Fallback to single track format
+        const appleMusicUrl = `https://music.apple.com/us/album/${urlSafeName}/id${trackId}`;
+        return appleMusicUrl;
+      }
     }
     
     // If no results found, return null

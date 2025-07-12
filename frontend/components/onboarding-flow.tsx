@@ -164,7 +164,7 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
           </Card>
 
           <div className="grid grid-cols-3 gap-2 text-xs">
-            {["Spotify", "YouTube", "Apple Music", "Deezer", "SoundCloud"].map((platform) => (
+            {["Spotify", "YouTube", "Apple Music", "Deezer", "Tidal", "Amazon Music"].map((platform) => (
               <div key={platform} className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                 <Music className="h-3 w-3 mx-auto mb-1" />
                 <span>{platform}</span>

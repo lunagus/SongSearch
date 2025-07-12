@@ -85,16 +85,16 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
         // Close connection if done
         if (data.stage === 'Done') {
           eventSource.close()
-        }
+          }
       } catch (err) {
         console.error('Error parsing progress data:', err)
-      }
+        }
     }
 
     eventSource.onerror = (err) => {
       console.error('SSE connection error:', err)
       setError('Lost connection to server')
-    }
+      }
 
     return () => {
       eventSource.close()

@@ -12,6 +12,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.1.0",
     "express": "^5.1.0",

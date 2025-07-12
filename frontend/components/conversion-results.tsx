@@ -121,7 +121,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
       // Close the dialog after successful application
       setTimeout(() => {
-        onClose()
+    onClose()
       }, 2000)
     } catch (error) {
       console.error('Apply fixes error:', error)
@@ -307,26 +307,26 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
                       {/* Original Suggestions (if any) */}
                       {track.suggestions && track.suggestions.length > 0 && (
-                        <div>
+                      <div>
                           <p className="text-sm font-medium mb-2">Original suggestions:</p>
-                          <div className="space-y-2">
-                            {track.suggestions.map((suggestion) => (
+                        <div className="space-y-2">
+                          {track.suggestions.map((suggestion) => (
                               <div key={suggestion.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded border">
-                                <input
-                                  type="radio"
-                                  name={trackKey}
-                                  value={suggestion.id}
-                                  onChange={() => handleSelectReplacement(trackKey, suggestion.id)}
-                                  className="h-4 w-4"
-                                />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium">{suggestion.title}</p>
-                                  <p className="text-xs text-muted-foreground">{suggestion.artist}</p>
-                                </div>
+                              <input
+                                type="radio"
+                                name={trackKey}
+                                value={suggestion.id}
+                                onChange={() => handleSelectReplacement(trackKey, suggestion.id)}
+                                className="h-4 w-4"
+                              />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">{suggestion.title}</p>
+                                <p className="text-xs text-muted-foreground">{suggestion.artist}</p>
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
+                      </div>
                       )}
                     </CardContent>
                   </Card>
@@ -359,9 +359,9 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
               )}
               {results.playlistUrl && (
                 <Button onClick={handleOpenPlaylist} className="bg-green-600 hover:bg-green-700">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Playlist
-                </Button>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open Playlist
+              </Button>
               )}
             </div>
           </div>

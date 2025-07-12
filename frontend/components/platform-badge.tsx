@@ -1,7 +1,14 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { Music, Play, Headphones, Apple, Cloud } from "lucide-react"
+import {
+  SpotifyIcon,
+  YouTubeMusicIcon,
+  DeezerIcon,
+  AppleMusicIcon,
+  TidalIcon,
+  AmazonMusicIcon,
+} from "@/components/platform-icons"
 import type { JSX } from "react"
 
 interface Platform {
@@ -17,15 +24,13 @@ interface PlatformBadgeProps {
 }
 
 export function PlatformBadge({ platform }: PlatformBadgeProps) {
-  const getPlatformIcon = (platformId: string) => {
-    const icons = {
-      spotify: <Music className="h-3 w-3 sm:h-4 sm:w-4" />,
-      ytmusic: <Play className="h-3 w-3 sm:h-4 sm:w-4" />,
-      deezer: <Headphones className="h-3 w-3 sm:h-4 sm:w-4" />,
-      applemusic: <Apple className="h-3 w-3 sm:h-4 sm:w-4" />,
-      soundcloud: <Cloud className="h-3 w-3 sm:h-4 sm:w-4" />,
-    }
-    return icons[platformId as keyof typeof icons] || <Music className="h-3 w-3 sm:h-4 sm:w-4" />
+  const platformIcons = {
+    spotify: SpotifyIcon,
+    ytmusic: YouTubeMusicIcon,
+    deezer: DeezerIcon,
+    applemusic: AppleMusicIcon,
+    tidal: TidalIcon,
+    amazonmusic: AmazonMusicIcon,
   }
 
   return (
@@ -50,7 +55,10 @@ export function PlatformBadge({ platform }: PlatformBadgeProps) {
           ${platform.darkBadgeColor}
         `}
       >
-        {getPlatformIcon(platform.icon)}
+        {(() => {
+          const Icon = platformIcons[platform.id as keyof typeof platformIcons]
+          return Icon ? <Icon className="h-3 w-3 sm:h-4 sm:w-4" /> : null
+        })()}
         <span className="whitespace-nowrap">
           <span className="hidden xs:inline sm:inline">{platform.name}</span>
           <span className="xs:hidden sm:hidden">{platform.name.split(" ")[0]}</span>

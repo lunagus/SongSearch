@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, Loader2, Music, Apple, Cloud } from "lucide-react"
+import { CheckCircle, XCircle, Loader2, Music, Apple, Cloud, Play, Headphones } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import type { JSX } from "react/jsx-runtime"
 
@@ -16,92 +16,84 @@ export default function LoginSuccess() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const getPlatformIcon = (platform: string) => {
-    const icons: Record<string, JSX.Element> = {
-      Spotify: <Music className="h-8 w-8 text-green-600" />,
-      "YouTube Music": <Music className="h-8 w-8 text-red-600" />,
-      Deezer: <Music className="h-8 w-8 text-orange-600" />,
-      "Apple Music": <Apple className="h-8 w-8 text-gray-900" />,
-      SoundCloud: <Cloud className="h-8 w-8 text-orange-400" />,
-    }
-    return icons[platform] || <Music className="h-8 w-8 text-blue-600" />
+  const platformIcons = {
+    Spotify: <Music className="h-8 w-8 text-green-500" />,
+    YouTube: <Play className="h-8 w-8 text-red-500" />,
+    Deezer: <Headphones className="h-8 w-8 text-[#9F47FF]" />,
+    "Apple Music": <Apple className="h-8 w-8 text-gray-900 dark:text-white" />,
+    Tidal: <Headphones className="h-8 w-8 text-cyan-500" />,
+    "Amazon Music": <Music className="h-8 w-8 text-orange-500" />,
   }
 
-  const getPlatformColor = (platform: string) => {
-    const colors: Record<string, string> = {
-      Spotify: "from-green-500 to-green-600",
-      "YouTube Music": "from-red-500 to-red-600",
-      Deezer: "from-orange-500 to-orange-600",
-      "Apple Music": "from-gray-800 to-gray-900",
-      SoundCloud: "from-orange-300 to-orange-400",
-    }
-    return colors[platform] || "from-blue-500 to-blue-600"
+  const platformGradients = {
+    Spotify: "from-green-300 to-green-400",
+    YouTube: "from-red-300 to-red-400",
+    Deezer: "from-[#9F47FF] to-[#7C2AE8]",
+    "Apple Music": "from-gray-300 to-gray-400",
+    Tidal: "from-cyan-300 to-cyan-400",
+    "Amazon Music": "from-orange-300 to-orange-400",
   }
 
   useEffect(() => {
-    const spotifySession = searchParams.get("spotify_session")
-    const ytSession = searchParams.get("yt_session")
-    const deezerSession = searchParams.get("deezer_session")
-    const appleSession = searchParams.get("apple_session")
-    const soundcloudSession = searchParams.get("soundcloud_session")
+    // Fix: Accept both 'session' and 'spotify_session' for Spotify
+    const spotifySession = searchParams.get("spotify_session") || searchParams.get("session");
+    const ytSession = searchParams.get("yt_session");
+    const deezerSession = searchParams.get("deezer_session");
+    const appleSession = searchParams.get("apple_session");
 
-    let detectedPlatform = ""
-    let sessionKey = ""
+    let detectedPlatform = "";
+    let sessionKey = "";
 
     if (spotifySession) {
-      detectedPlatform = "Spotify"
-      sessionKey = "spotify_session"
-      localStorage.setItem(sessionKey, spotifySession)
+      detectedPlatform = "Spotify";
+      sessionKey = "spotify_session";
+      localStorage.setItem(sessionKey, spotifySession);
     } else if (ytSession) {
-      detectedPlatform = "YouTube Music"
-      sessionKey = "yt_session"
-      localStorage.setItem(sessionKey, ytSession)
+      detectedPlatform = "YouTube";
+      sessionKey = "yt_session";
+      localStorage.setItem(sessionKey, ytSession);
     } else if (deezerSession) {
-      detectedPlatform = "Deezer"
-      sessionKey = "deezer_session"
-      localStorage.setItem(sessionKey, deezerSession)
+      detectedPlatform = "Deezer";
+      sessionKey = "deezer_session";
+      localStorage.setItem(sessionKey, deezerSession);
     } else if (appleSession) {
-      detectedPlatform = "Apple Music"
-      sessionKey = "apple_session"
-      localStorage.setItem(sessionKey, appleSession)
-    } else if (soundcloudSession) {
-      detectedPlatform = "SoundCloud"
-      sessionKey = "soundcloud_session"
-      localStorage.setItem(sessionKey, soundcloudSession)
+      detectedPlatform = "Apple Music";
+      sessionKey = "apple_session";
+      localStorage.setItem(sessionKey, appleSession);
     }
 
     if (detectedPlatform) {
-      setPlatform(detectedPlatform)
+      setPlatform(detectedPlatform);
 
       // Animate progress
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 100) {
-            clearInterval(progressInterval)
-            setStatus("success")
-            return 100
+            clearInterval(progressInterval);
+            setStatus("success");
+            return 100;
           }
-          return prev + 10
-        })
-      }, 100)
+          return prev + 10;
+        });
+      }, 100);
 
       // Countdown and redirect
       setTimeout(() => {
         const countdownInterval = setInterval(() => {
           setCountdown((prev) => {
             if (prev <= 1) {
-              clearInterval(countdownInterval)
-              router.push("/")
-              return 0
+              clearInterval(countdownInterval);
+              router.push("/");
+              return 0;
             }
-            return prev - 1
-          })
-        }, 1000)
-      }, 1500)
+            return prev - 1;
+          });
+        }, 1000);
+      }, 1500);
     } else {
-      setStatus("error")
+      setStatus("error");
     }
-  }, [searchParams, router])
+  }, [searchParams, router]);
 
   const handleManualRedirect = () => {
     router.push("/")
@@ -122,8 +114,8 @@ export default function LoginSuccess() {
             )}
             {status === "success" && (
               <div className="relative">
-                <div className={`p-4 bg-gradient-to-r ${getPlatformColor(platform)} rounded-full`}>
-                  {getPlatformIcon(platform)}
+                <div className={`p-4 bg-gradient-to-r ${platformGradients[platform as keyof typeof platformGradients]} rounded-full`}>
+                  {platformIcons[platform as keyof typeof platformIcons]}
                 </div>
                 <div className="absolute -top-1 -right-1 p-1 bg-green-500 rounded-full">
                   <CheckCircle className="h-4 w-4 text-white" />
@@ -179,7 +171,7 @@ export default function LoginSuccess() {
 
               <Button
                 onClick={handleManualRedirect}
-                className={`w-full bg-gradient-to-r ${getPlatformColor(platform)} hover:opacity-90 transition-opacity`}
+                className={`w-full bg-gradient-to-r ${platformGradients[platform as keyof typeof platformGradients]} hover:opacity-90 transition-opacity`}
               >
                 Continue to SongSeek
               </Button>

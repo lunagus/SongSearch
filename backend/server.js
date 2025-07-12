@@ -802,7 +802,7 @@ app.get('/convert-youtube-to-deezer', async (req, res) => {
   }
 });
 
-// Convert Apple Music playlist to other platforms
+// Convert Apple Music, Amazon Music, and Tidal playlists to other platforms
 app.get('/convert-apple-music-playlist', async (req, res) => {
   const { link, targetPlatform, session } = req.query;
   
@@ -810,7 +810,17 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
     return res.status(400).json({ error: 'Missing "link" or "targetPlatform" query parameter' });
   }
 
-  console.log(`Converting Apple Music playlist: ${link} to ${targetPlatform}`);
+  // Detect the source platform from the link
+  let sourcePlatform = 'applemusic';
+  if (link.includes('music.amazon.com') && link.includes('playlist')) {
+    sourcePlatform = 'amazonmusic';
+  } else if (link.includes('tidal.com') && link.includes('playlist')) {
+    sourcePlatform = 'tidal';
+  } else if (link.includes('music.apple.com') && link.includes('playlist')) {
+    sourcePlatform = 'applemusic';
+  }
+
+  console.log(`Converting ${sourcePlatform} playlist: ${link} to ${targetPlatform}`);
 
   try {
     // Check if target platform requires authentication
@@ -821,16 +831,30 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
       }
     }
 
-    // Resolve Apple Music playlist
+    // Resolve playlist based on source platform
     const { resolvePlaylist } = await import('./resolvers/resolvers.js');
-    const { name, tracks } = await resolvePlaylist(link);
+    const result = await resolvePlaylist(link);
+    const { name, tracks, error: resolverError, debug } = result;
     
-    console.log(`Resolved Apple Music playlist: ${name} with ${tracks.length} tracks`);
+    if (resolverError) {
+      console.warn(`[${sourcePlatform}] Playlist resolver error:`, resolverError);
+      return res.status(200).json({
+        error: resolverError,
+        debug,
+        playlistName: name,
+        sourcePlatform,
+        totalTracks: tracks ? tracks.length : 0
+      });
+    }
 
-    if (tracks.length === 0) {
-      return res.status(404).json({ 
-        error: 'No tracks found in Apple Music playlist',
-        playlistName: name
+    console.log(`Resolved ${sourcePlatform} playlist: ${name} with ${tracks.length} tracks`);
+
+    if (!tracks || tracks.length === 0) {
+      return res.status(200).json({ 
+        error: `No tracks found in ${sourcePlatform} playlist`,
+        playlistName: name,
+        sourcePlatform,
+        debug
       });
     }
 
@@ -885,17 +909,86 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
     res.json({
       success: true,
       playlistName: name,
+      sourcePlatform: sourcePlatform,
       targetPlatform: targetPlatform,
       playlistUrl: playlistUrl,
       totalTracks: tracks.length,
-      message: 'Apple Music playlist converted successfully'
+      message: `${sourcePlatform} playlist converted successfully`
     });
 
   } catch (err) {
-    console.error('Apple Music playlist conversion error:', err);
+    console.error(`${sourcePlatform} playlist conversion error:`, err);
     res.status(500).json({ 
-      error: 'Error converting Apple Music playlist',
+      error: `Error converting ${sourcePlatform} playlist`,
       message: err.message 
+    });
+  }
+});
+
+// Feedback endpoint
+app.post('/feedback', async (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  // Basic validation
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ 
+      error: 'Missing required fields',
+      message: 'Name, email, subject, and message are required' 
+    });
+  }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ 
+      error: 'Invalid email format',
+      message: 'Please provide a valid email address' 
+    });
+  }
+
+  try {
+    // For now, we'll log the feedback and store it in memory
+    // In a production environment, you'd want to store this in a database
+    // or send it to an email service like SendGrid, Mailgun, etc.
+    
+    const feedback = {
+      id: Date.now().toString(),
+      name: name.trim(),
+      email: email.trim(),
+      subject: subject.trim(),
+      message: message.trim(),
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress
+    };
+
+    // Log the feedback (in production, you'd store this in a database)
+    console.log('📝 New feedback received:', {
+      id: feedback.id,
+      name: feedback.name,
+      email: feedback.email,
+      subject: feedback.subject,
+      message: feedback.message.substring(0, 100) + (feedback.message.length > 100 ? '...' : ''),
+      timestamp: feedback.timestamp
+    });
+
+    // TODO: In production, implement one of these:
+    // 1. Store in database (MongoDB, PostgreSQL, etc.)
+    // 2. Send to email service (SendGrid, Mailgun, etc.)
+    // 3. Send to notification service (Slack, Discord, etc.)
+    // 4. Store in file system for backup
+
+    res.json({ 
+      success: true, 
+      message: 'Feedback received successfully',
+      id: feedback.id
+    });
+
+  } catch (error) {
+    console.error('Error processing feedback:', error);
+    res.status(500).json({ 
+      error: 'Failed to process feedback',
+      message: 'Please try again later' 
     });
   }
 });

@@ -9,17 +9,20 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "SongSeek - Convert Music Between Platforms",
-  description: "Convert music tracks and playlists between Spotify, YouTube Music, Deezer, Apple Music, and SoundCloud",
+  description: "Convert music tracks and playlists between Spotify, YouTube, Deezer, Apple Music, Tidal, and Amazon Music",
   keywords: [
-    "music converter",
-    "playlist converter",
+    "music",
+    "playlist",
+    "converter",
     "spotify",
-    "youtube music",
+    "youtube",
     "deezer",
     "apple music",
-    "soundcloud",
+    "tidal",
+    "amazon music",
+    "streaming",
     "music transfer",
-    "playlist transfer",
+    "playlist sync",
   ],
     generator: 'v0.dev'
 }
