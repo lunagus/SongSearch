@@ -32,7 +32,7 @@ import { DragDropZone } from "@/components/drag-drop-zone"
 import { TrackResultDisplay } from "@/components/track-result-display"
 import { trackEvent, trackConversion, trackError } from "@/lib/analytics"
 import type { JSX } from "react/jsx-runtime"
-import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertYouTubeToSpotify, listenToProgress, getConversionResults, convertTrack, convertAppleMusicPlaylist } from "@/lib/api";
+import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertSpotifyToDeezer, convertYouTubeToSpotify, convertYouTubeToDeezer, listenToProgress, getConversionResults, convertTrack, convertAppleMusicPlaylist } from "@/lib/api";
 
 // Lazy load heavy components for better performance
 const ConversionProgress = lazy(() =>
@@ -46,6 +46,7 @@ const OnboardingFlow = lazy(() => import("@/components/onboarding-flow").then((m
 interface LoginStatus {
   spotify: boolean
   youtube: boolean
+  deezer: boolean
   appleMusic: boolean
   soundcloud: boolean
 }
@@ -86,6 +87,7 @@ export default function SongSeekApp() {
   const [loginStatus, setLoginStatus] = useState<LoginStatus>({
     spotify: false,
     youtube: false,
+    deezer: false,
     appleMusic: false,
     soundcloud: false,
   })
@@ -146,6 +148,7 @@ export default function SongSeekApp() {
     const sessions = {
       spotify: localStorage.getItem("spotify_session"),
       youtube: localStorage.getItem("yt_session"),
+      deezer: localStorage.getItem("deezer_session"),
       appleMusic: localStorage.getItem("apple_session"),
       soundcloud: localStorage.getItem("soundcloud_session"),
     }
@@ -153,6 +156,7 @@ export default function SongSeekApp() {
     setLoginStatus({
       spotify: !!sessions.spotify,
       youtube: !!sessions.youtube,
+      deezer: !!sessions.deezer,
       appleMusic: !!sessions.appleMusic,
       soundcloud: !!sessions.soundcloud,
     })
@@ -253,6 +257,11 @@ export default function SongSeekApp() {
         message: "Invalid or unsupported link format",
         suggestion: "Make sure you're using a valid playlist or track link",
         type: "error",
+      },
+      deezer_unavailable: {
+        message: "Playlist creation is not available for Deezer at this time.",
+        suggestion: "Track conversion to Deezer still works!",
+        type: "warning",
       },
     }
 
@@ -492,6 +501,11 @@ export default function SongSeekApp() {
       return;
     }
     const targetPlatformKey = playlistTarget === "ytmusic" ? "youtube" : (playlistTarget as keyof LoginStatus);
+    // Skip authentication check for Deezer since playlist creation is not available
+    if (playlistTarget === "deezer") {
+      showDetailedFeedback("deezer_unavailable", playlistTarget, false);
+      return;
+    }
     if (!loginStatus[targetPlatformKey]) {
       showDetailedFeedback("login_expired", playlistTarget, false);
       return;
@@ -590,8 +604,27 @@ export default function SongSeekApp() {
       }
       // Apple Music to Deezer conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "deezer") {
-        // Deezer doesn't require authentication for track conversion
-        conversionResponse = await convertAppleMusicPlaylist(playlistLink, "deezer");
+        toast({
+          title: "Deezer Playlist Creation Temporarily Unavailable",
+          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        });
+        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+      }
+      // Spotify to Deezer conversion
+      else if (sourcePlatform === "spotify" && playlistTarget === "deezer") {
+        toast({
+          title: "Deezer Playlist Creation Temporarily Unavailable",
+          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        });
+        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+      }
+      // YouTube to Deezer conversion
+      else if (sourcePlatform === "ytmusic" && playlistTarget === "deezer") {
+        toast({
+          title: "Deezer Playlist Creation Temporarily Unavailable",
+          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        });
+        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
       }
       else {
         throw new Error(`Conversion from ${sourcePlatform} to ${playlistTarget} is not yet implemented.`);
@@ -652,6 +685,15 @@ export default function SongSeekApp() {
   };
 
   const handleLogin = (platform: string) => {
+    // Check if Deezer is selected and show appropriate message
+    if (platform === "deezer") {
+      toast({
+        title: "Deezer Login Temporarily Unavailable",
+        description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+      });
+      return;
+    }
+    
     trackEvent("login_attempt", {
       platform,
       timestamp: new Date().toISOString(),
@@ -868,10 +910,22 @@ export default function SongSeekApp() {
                     </SelectTrigger>
                     <SelectContent>
                       {platforms.map((platform) => (
-                        <SelectItem key={platform.id} value={platform.id} className="text-base sm:text-lg py-3">
+                        <SelectItem 
+                          key={platform.id} 
+                          value={platform.id} 
+                          className={`text-base sm:text-lg py-3 ${
+                            platform.id === "deezer" ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={platform.id === "deezer"}
+                        >
                           <div className="flex items-center gap-3">
                             {getPlatformIcon(platform.icon)}
                             <span>{platform.name}</span>
+                            {platform.id === "deezer" && (
+                              <span className="text-xs text-orange-600 dark:text-orange-400 ml-auto">
+                                (Track only)
+                              </span>
+                            )}
                           </div>
                         </SelectItem>
                       ))}
@@ -888,6 +942,19 @@ export default function SongSeekApp() {
                     const isLoggedIn = getLoginStatusForPlatform(playlistTarget)
 
                     if (!selectedPlatform) return null
+
+                    // Special handling for Deezer
+                    if (selectedPlatform.id === "deezer") {
+                      return (
+                        <Button
+                          disabled
+                          className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl bg-gray-400 text-white opacity-50 cursor-not-allowed"
+                        >
+                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                          Deezer Login Temporarily Unavailable
+                        </Button>
+                      )
+                    }
 
                     return (
                       <Button

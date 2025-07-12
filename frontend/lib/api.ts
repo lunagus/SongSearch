@@ -8,6 +8,8 @@ export function getOAuthUrl(platform: string) {
       return `${API_BASE_URL}/login`;
     case "youtube":
       return `${API_BASE_URL}/youtube/login`;
+    case "deezer":
+      return `${API_BASE_URL}/deezer/login`;
     default:
       throw new Error("Unsupported platform");
   }
@@ -29,8 +31,24 @@ export async function convertSpotifyToYouTube(playlistId: string, ytSession: str
   return data;
 }
 
+export async function convertSpotifyToDeezer(playlistId: string, spSession: string) {
+  const url = `${API_BASE_URL}/convert-spotify-to-deezer?playlistId=${encodeURIComponent(playlistId)}&spSession=${encodeURIComponent(spSession)}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  return data;
+}
+
 export async function convertYouTubeToSpotify(link: string, session: string) {
   const url = `${API_BASE_URL}/convert-youtube-playlist?link=${encodeURIComponent(link)}&session=${encodeURIComponent(session)}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  return data;
+}
+
+export async function convertYouTubeToDeezer(playlistId: string, ytSession: string) {
+  const url = `${API_BASE_URL}/convert-youtube-to-deezer?playlistId=${encodeURIComponent(playlistId)}&ytSession=${encodeURIComponent(ytSession)}`;
   const res = await fetch(url, { method: "GET" });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();

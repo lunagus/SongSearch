@@ -32,6 +32,8 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 | YouTube → Spotify | ✅ |
 | Apple Music → Spotify / YouTube | ✅ |
 
+> 🔹 **Note**: Deezer playlist creation requires OAuth authentication, but Deezer's developer portal is temporarily closed for new applications. Track conversion to Deezer still works!
+
 ### 🎧 Track-by-Track Conversion
 - One-click track conversions between all platforms
 - Search and result previews
@@ -51,19 +53,21 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 | Platform         | Import Playlist | Export Playlist | Track Conversion | Search | OAuth |
 |------------------|------------------|------------------|------------------|--------|-------|
 | Spotify          | ✅               | ✅               | ✅               | ✅     | ✅    |
-| Deezer           | ✅               | 🔄               | ✅               | ✅     | ❌    |
+| Deezer           | ✅               | ⏳               | ✅               | ✅     | 🔄    |
 | YouTube Music    | ✅               | ✅               | ✅               | ✅     | ✅    |
 | Apple Music      | ✅ (scrape)      | ❌               | ✅               | ✅     | ❌    |
 | SoundCloud       | 🔄               | ❌               | 🔄               | 🔄     | 🔄    |
-
 > 🔹 Note: YouTube Music has quota limits — large conversions may exhaust daily tokens.
+> 🔹 Deezer Status: Playlist export requires OAuth, but Deezer's developer portal is temporarily closed for new applications. Track conversion and search work via public API.
 
 ### **What This Means:**
-- **Spotify**: Full bidirectional support - import and export playlists, convert tracks, search
-- **Deezer**: Import playlists and convert tracks (export coming soon with OAuth)
+- **Spotify**: Full bidirectional support - import and export playlists, convert tracks, search, with OAuth authentication
 - **YouTube Music**: Full bidirectional support with OAuth authentication
+- **Deezer**: Import playlists and convert tracks (export blocked by developer portal closure)
 - **Apple Music**: Import playlists via web scraping, convert individual tracks
 - **SoundCloud**: Coming soon with full integration
+
+> API Limitations means restriction of features.
 
 ---
 
@@ -88,7 +92,7 @@ I got tired of trying to find a suitable tool that would let me convert my big D
 | Feature                    | Status        |
 |----------------------------|---------------|
 | SoundCloud Integration     | 🛠 In Progress |
-| Deezer Export w/ OAuth     | 🛠 In Progress |
+| Deezer Export w/ OAuth     | ⏳ In Progress |
 | Apple Music Export         | 🧩 Researching |
 | Bulk Upload via File       | 🔜 Planned     |
 | UI for Failed Matches Fix  | 🔜 Planned     |

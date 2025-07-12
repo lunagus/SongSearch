@@ -9,8 +9,12 @@ import convertRouter from './routes/convert-route.js';
 import searchRouter from './routes/search-route.js';
 import fixRouter from './routes/fix-route.js';
 import { getSpotifyLoginUrl, getTokensFromCode } from './utils/spotify-auth.js';
+import { getDeezerLoginUrl, getTokensFromCode as getDeezerTokensFromCode } from './utils/deezer-auth.js';
 import resolveDeezerPlaylist from './resolvers/deezer-playlist-resolver.js';
 import { createSpotifyPlaylist } from './mappers/deezer-to-spotify-playlist-mapper.js';
+import { createDeezerPlaylist } from './mappers/spotify-to-deezer-playlist-mapper.js';
+import { createDeezerPlaylistFromYouTube } from './mappers/youtube-to-deezer-playlist-mapper.js';
+import { createDeezerPlaylistFromApple } from './mappers/apple-to-deezer-playlist-mapper.js';
 import { getYouTubeLoginUrl, getYouTubeTokensFromCode } from './utils/youtube-auth.js';
 import { convertSpotifyToYouTubePlaylist } from './mappers/spotify-to-youtube-playlist-mapper.js';
 import resolveSpotifyPlaylist from './resolvers/spotify-playlist-resolver.js';
@@ -118,6 +122,36 @@ app.get('/youtube/callback', async (req, res) => {
     res.redirect(`http://127.0.0.1:3000/login-success?youtube_session=${state}`);
   } catch (err) {
     console.error('YouTube OAuth error:', err);
+    res.status(500).send('Authentication failed');
+  }
+});
+
+// Deezer OAuth login
+app.get('/deezer/login', (req, res) => {
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('deezer_auth_state', state);
+  const url = getDeezerLoginUrl(state);
+  res.redirect(url);
+});
+
+// Deezer OAuth callback
+app.get('/deezer/callback', async (req, res) => {
+  const { code, state } = req.query;
+  const storedState = req.cookies?.deezer_auth_state;
+
+  if (!state || state !== storedState) {
+    return res.status(400).send('State mismatch');
+  }
+
+  try {
+    const tokens = await getDeezerTokensFromCode(code);
+    userSessions.set(state, {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+    });
+    res.redirect(`http://127.0.0.1:3000/login-success?deezer_session=${state}`);
+  } catch (err) {
+    console.error('Deezer OAuth error:', err);
     res.status(500).send('Authentication failed');
   }
 });
@@ -540,6 +574,234 @@ app.get('/convert-youtube-playlist', async (req, res) => {
   }
 });
 
+// Convert Spotify playlist to Deezer playlist
+app.get('/convert-spotify-to-deezer', async (req, res) => {
+  const { playlistId, spSession } = req.query;
+  const sessionData = userSessions.get(spSession);
+
+  if (!sessionData?.accessToken) {
+    return res.status(401).send('User not authenticated with Spotify');
+  }
+
+  try {
+    progressMap.set(spSession, { 
+      stage: 'Fetching Spotify playlist...', 
+      current: 0, 
+      total: 0,
+      tracks: []
+    });
+    
+    // Resolve Spotify playlist to get tracks
+    const resolveSpotifyPlaylist = (await import('./resolvers/spotify-playlist-resolver.js')).default;
+    const { name, tracks } = await resolveSpotifyPlaylist(playlistId);
+    
+    // Initialize tracks with pending status
+    const trackProgress = tracks.map(track => ({
+      title: track.title,
+      artist: track.artist,
+      status: 'pending'
+    }));
+    
+    progressMap.set(spSession, { 
+      stage: 'Searching tracks on Deezer...', 
+      current: 0, 
+      total: tracks.length,
+      tracks: trackProgress
+    });
+
+    const deezerUrl = await createDeezerPlaylist(
+      sessionData.accessToken,
+      name,
+      tracks,
+      (added, trackInfo) => {
+        if (trackInfo) {
+          // Update specific track status
+          const trackIndex = trackProgress.findIndex(t => 
+            t.title === trackInfo.title && t.artist === trackInfo.artist
+          );
+          if (trackIndex !== -1) {
+            trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
+          }
+        } else {
+          // Update track statuses based on what was added
+          for (let i = 0; i < added && i < trackProgress.length; i++) {
+            trackProgress[i].status = 'success';
+          }
+        }
+        progressMap.set(spSession, { 
+          stage: 'Adding tracks to Deezer playlist...', 
+          current: added, 
+          total: tracks.length,
+          tracks: trackProgress
+        });
+      },
+      sessionData.refreshToken,
+      (newAccessToken, newRefreshToken) => {
+        userSessions.set(spSession, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+        sessionData.accessToken = newAccessToken;
+        sessionData.refreshToken = newRefreshToken;
+        console.log('Updated session tokens after refresh.');
+      }
+    );
+    
+    progressMap.set(spSession, { 
+      stage: 'Done', 
+      current: tracks.length, 
+      total: tracks.length,
+      tracks: trackProgress
+    });
+    
+    // Store conversion results
+    const matched = trackProgress.filter(track => track.status === 'success').map(track => ({
+      title: track.title,
+      artist: track.artist,
+      status: 'success'
+    }));
+    
+    const skipped = trackProgress.filter(track => track.status === 'failed').map(track => ({
+      title: track.title,
+      artist: track.artist,
+      reason: 'Not found on target platform'
+    }));
+    
+    const conversionResults = {
+      matched,
+      skipped,
+      mismatched: [], // No mismatched tracks for this conversion type
+      playlistUrl: deezerUrl
+    };
+    
+    conversionResultsMap.set(spSession, conversionResults);
+    
+    // Clean up progress data after 1 min, but keep results for 5 minutes
+    setTimeout(() => progressMap.delete(spSession), 60000);
+    setTimeout(() => conversionResultsMap.delete(spSession), 300000);
+    
+    res.json({ success: true, session: spSession, message: 'Conversion completed successfully' });
+  } catch (err) {
+    progressMap.set(spSession, { 
+      stage: 'Error', 
+      error: err.message,
+      tracks: []
+    });
+    res.status(500).send('Error converting Spotify playlist to Deezer: ' + err.message);
+  }
+});
+
+// Convert YouTube playlist to Deezer playlist
+app.get('/convert-youtube-to-deezer', async (req, res) => {
+  const { playlistId, ytSession } = req.query;
+  const sessionData = userSessions.get(ytSession);
+
+  if (!sessionData?.accessToken) {
+    return res.status(401).send('User not authenticated with YouTube');
+  }
+
+  try {
+    progressMap.set(ytSession, { 
+      stage: 'Fetching YouTube playlist...', 
+      current: 0, 
+      total: 0,
+      tracks: []
+    });
+    
+    // Resolve YouTube playlist to get tracks
+    const resolveYouTubePlaylist = (await import('./resolvers/youtube-playlist-scraper.js')).default;
+    const { name, tracks } = await resolveYouTubePlaylist(playlistId);
+    
+    // Initialize tracks with pending status
+    const trackProgress = tracks.map(track => ({
+      title: track.title,
+      artist: track.artist,
+      status: 'pending'
+    }));
+    
+    progressMap.set(ytSession, { 
+      stage: 'Searching tracks on Deezer...', 
+      current: 0, 
+      total: tracks.length,
+      tracks: trackProgress
+    });
+
+    const deezerUrl = await createDeezerPlaylistFromYouTube(
+      sessionData.accessToken,
+      name,
+      tracks,
+      (added, trackInfo) => {
+        if (trackInfo) {
+          // Update specific track status
+          const trackIndex = trackProgress.findIndex(t => 
+            t.title === trackInfo.title && t.artist === trackInfo.artist
+          );
+          if (trackIndex !== -1) {
+            trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
+          }
+        } else {
+          // Update track statuses based on what was added
+          for (let i = 0; i < added && i < trackProgress.length; i++) {
+            trackProgress[i].status = 'success';
+          }
+        }
+        progressMap.set(ytSession, { 
+          stage: 'Adding tracks to Deezer playlist...', 
+          current: added, 
+          total: tracks.length,
+          tracks: trackProgress
+        });
+      },
+      sessionData.refreshToken,
+      (newAccessToken, newRefreshToken) => {
+        userSessions.set(ytSession, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+        sessionData.accessToken = newAccessToken;
+        sessionData.refreshToken = newRefreshToken;
+        console.log('Updated session tokens after refresh.');
+      }
+    );
+    
+    progressMap.set(ytSession, { 
+      stage: 'Done', 
+      current: tracks.length, 
+      total: tracks.length,
+      tracks: trackProgress
+    });
+    
+    // Store conversion results
+    const matched = trackProgress.filter(track => track.status === 'success').map(track => ({
+      title: track.title,
+      artist: track.artist,
+      status: 'success'
+    }));
+    
+    const skipped = trackProgress.filter(track => track.status === 'failed').map(track => ({
+      title: track.title,
+      artist: track.artist,
+      reason: 'Not found on target platform'
+    }));
+    
+    const conversionResults = {
+      matched,
+      skipped,
+      mismatched: [], // No mismatched tracks for this conversion type
+      playlistUrl: deezerUrl
+    };
+    
+    conversionResultsMap.set(ytSession, conversionResults);
+    
+    // Clean up progress data after 1 min, but keep results for 5 minutes
+    setTimeout(() => progressMap.delete(ytSession), 60000);
+    setTimeout(() => conversionResultsMap.delete(ytSession), 300000);
+    
+    res.json({ success: true, session: ytSession, message: 'Conversion completed successfully' });
+  } catch (err) {
+    progressMap.set(ytSession, { 
+      stage: 'Error', 
+      error: err.message,
+      tracks: []
+    });
+    res.status(500).send('Error converting YouTube playlist to Deezer: ' + err.message);
+  }
+});
+
 // Convert Apple Music playlist to other platforms
 app.get('/convert-apple-music-playlist', async (req, res) => {
   const { link, targetPlatform, session } = req.query;
@@ -552,7 +814,7 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
 
   try {
     // Check if target platform requires authentication
-    if (targetPlatform === 'spotify' || targetPlatform === 'ytmusic') {
+    if (targetPlatform === 'spotify' || targetPlatform === 'ytmusic' || targetPlatform === 'deezer') {
       const user = userSessions.get(session);
       if (!user?.accessToken) {
         return res.status(401).json({ error: 'Authentication required for target platform' });
@@ -605,35 +867,17 @@ app.get('/convert-apple-music-playlist', async (req, res) => {
       
       playlistUrl = youtubePlaylist;
     } else if (targetPlatform === 'deezer') {
-      // For Deezer, we'll return track search results since we can't create playlists
-      // without authentication
-      const trackResults = [];
+      const user = userSessions.get(session);
+      const { createDeezerPlaylistFromApple } = await import('./mappers/apple-to-deezer-playlist-mapper.js');
       
-      for (const track of tracks.slice(0, 20)) { // Limit to first 20 tracks
-        try {
-          const { mapToPlatform } = await import('./mappers/mappers.js');
-          const deezerUrl = await mapToPlatform(track, 'deezer');
-          if (deezerUrl) {
-            trackResults.push({
-              title: track.title,
-              artist: track.artist,
-              url: deezerUrl
-            });
-          }
-        } catch (error) {
-          console.warn(`Failed to find track on Deezer: ${track.title} - ${track.artist}`);
+      playlistUrl = await createDeezerPlaylistFromApple(
+        user.accessToken,
+        name,
+        tracks,
+        (current) => {
+          console.log(`Processed ${current} tracks for Deezer`);
         }
-      }
-      
-      return res.json({
-        success: true,
-        playlistName: name,
-        targetPlatform: 'deezer',
-        message: 'Track conversion completed (Deezer playlist creation requires authentication)',
-        trackResults: trackResults,
-        totalTracks: tracks.length,
-        convertedTracks: trackResults.length
-      });
+      );
     } else {
       return res.status(400).json({ error: 'Unsupported target platform' });
     }

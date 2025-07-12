@@ -20,6 +20,7 @@ export default function LoginSuccess() {
     const icons: Record<string, JSX.Element> = {
       Spotify: <Music className="h-8 w-8 text-green-600" />,
       "YouTube Music": <Music className="h-8 w-8 text-red-600" />,
+      Deezer: <Music className="h-8 w-8 text-orange-600" />,
       "Apple Music": <Apple className="h-8 w-8 text-gray-900" />,
       SoundCloud: <Cloud className="h-8 w-8 text-orange-400" />,
     }
@@ -30,6 +31,7 @@ export default function LoginSuccess() {
     const colors: Record<string, string> = {
       Spotify: "from-green-500 to-green-600",
       "YouTube Music": "from-red-500 to-red-600",
+      Deezer: "from-orange-500 to-orange-600",
       "Apple Music": "from-gray-800 to-gray-900",
       SoundCloud: "from-orange-300 to-orange-400",
     }
@@ -39,6 +41,7 @@ export default function LoginSuccess() {
   useEffect(() => {
     const spotifySession = searchParams.get("spotify_session")
     const ytSession = searchParams.get("yt_session")
+    const deezerSession = searchParams.get("deezer_session")
     const appleSession = searchParams.get("apple_session")
     const soundcloudSession = searchParams.get("soundcloud_session")
 
@@ -53,6 +56,10 @@ export default function LoginSuccess() {
       detectedPlatform = "YouTube Music"
       sessionKey = "yt_session"
       localStorage.setItem(sessionKey, ytSession)
+    } else if (deezerSession) {
+      detectedPlatform = "Deezer"
+      sessionKey = "deezer_session"
+      localStorage.setItem(sessionKey, deezerSession)
     } else if (appleSession) {
       detectedPlatform = "Apple Music"
       sessionKey = "apple_session"
