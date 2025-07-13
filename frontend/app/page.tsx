@@ -270,14 +270,221 @@ export default function SongSeekApp() {
     },
   ]
 
+  /**
+   * Detect the music platform based on a given URL
+   */
   const detectPlatform = (link: string): string | null => {
-    if (/spotify\.com/.test(link)) return "spotify"
-    if (/youtube\.com|youtu\.be/.test(link)) return "ytmusic"
-    if (/deezer\.com/.test(link)) return "deezer"
-    if (/music\.apple\.com/.test(link)) return "applemusic"
-    if (/tidal\.com|listen\.tidal\.com/.test(link)) return "tidal"
-    if (/music\.amazon\.com|amazon\.com\/music/.test(link)) return "amazonmusic"
-    return null
+    // Extract URL from text that might contain additional content
+    const extractUrlFromText = (text: string): string | null => {
+      if (!text || typeof text !== 'string') {
+        return null;
+      }
+
+      // Trim whitespace
+      text = text.trim();
+
+      // If the text is already a valid URL, return it
+      try {
+        new URL(text);
+        return text;
+      } catch (_) {
+        // Not a valid URL, try to extract one
+      }
+
+      // Recognized platforms - same patterns as backend
+      const PLATFORM_PATTERNS = {
+        spotify: /https?:\/\/(?:open\.)?spotify\.com\/(?:track|album|playlist)\/[a-zA-Z0-9]+(?:\?[^\s]*)?/g,
+        deezer: [
+          /https?:\/\/(?:www\.)?deezer\.com\/(?:[a-z]{2}\/)?(?:track|album|playlist)\/\d+(?:\?[^\s]*)?/g,
+          /https?:\/\/link\.deezer\.com\/[^\s]+/g
+        ],
+        youtube: [
+          /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/music\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/music\.youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g
+        ],
+        apple: [
+          /https?:\/\/music\.apple\.com\/[a-z]{2}\/(?:album|playlist)\/[^\s]+/g,
+          /https?:\/\/music\.apple\.com\/[a-z]{2}\/album\/[^\s]+\/id\d+(?:\?i=\d+)?/g
+        ],
+        tidal: [
+          /https?:\/\/(?:www\.)?tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/\d+/g,
+          /https?:\/\/listen\.tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/\d+/g
+        ],
+        amazon: [
+          /https?:\/\/music\.amazon\.com\/(?:albums|playlists)\/[A-Z0-9]+(?:\?[^\s]*)?/g,
+          /https?:\/\/www\.amazon\.com\/music\/player\/(?:tracks|albums|playlists)\/[A-Z0-9]+/g
+        ]
+      };
+
+      // Try each platform's patterns
+      for (const [platform, patterns] of Object.entries(PLATFORM_PATTERNS)) {
+        const arr = Array.isArray(patterns) ? patterns : [patterns];
+
+        for (const pattern of arr) {
+          const matches = text.match(pattern);
+          if (matches && matches.length > 0) {
+            // Return the first match, but clean it up
+            let url = matches[0];
+            
+            // Remove trailing punctuation that might be part of the text but not the URL
+            url = url.replace(/[.,;!?]+$/, '');
+            
+            // Ensure the URL is properly formatted
+            try {
+              new URL(url);
+              return url;
+            } catch (_) {
+              // Invalid URL, continue to next pattern
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // Extract URL from the input text
+    const extractedUrl = extractUrlFromText(link);
+    if (!extractedUrl) {
+      return null;
+    }
+
+    // Now detect platform from the extracted URL with improved logic
+    const url = extractedUrl.trim().toLowerCase();
+
+    if (url.includes('deezer.com')) return 'deezer';
+    if (url.includes('spotify.com')) return 'spotify';
+    if (url.includes('music.youtube.com')) return 'ytmusic';
+    if (url.includes('youtube.com/playlist')) return 'youtube';
+    if (url.includes('youtube.com/watch') && url.includes('v=')) return 'youtube';
+    if (url.includes('music.apple.com')) return 'applemusic';
+    if (url.includes('tidal.com') || url.includes('listen.tidal.com')) return 'tidal';
+    if (url.includes('music.amazon.com') || url.includes('amazon.com/music')) return 'amazonmusic';
+
+    return null;
+  }
+
+  /**
+   * Detect platform with additional type information (track, playlist, album)
+   */
+  const detectPlatformDetail = (link: string): { platform: string; type: string } | null => {
+    // Extract URL from text that might contain additional content
+    const extractUrlFromText = (text: string): string | null => {
+      if (!text || typeof text !== 'string') {
+        return null;
+      }
+
+      // Trim whitespace
+      text = text.trim();
+
+      // If the text is already a valid URL, return it
+      try {
+        new URL(text);
+        return text;
+      } catch (_) {
+        // Not a valid URL, try to extract one
+      }
+
+      // Recognized platforms - same patterns as backend
+      const PLATFORM_PATTERNS = {
+        spotify: /https?:\/\/(?:open\.)?spotify\.com\/(?:track|album|playlist)\/[a-zA-Z0-9]+(?:\?[^\s]*)?/g,
+        deezer: [
+          /https?:\/\/(?:www\.)?deezer\.com\/(?:[a-z]{2}\/)?(?:track|album|playlist)\/\d+(?:\?[^\s]*)?/g,
+          /https?:\/\/link\.deezer\.com\/[^\s]+/g
+        ],
+        youtube: [
+          /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/(?:www\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/music\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g,
+          /https?:\/\/music\.youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+(?:\&[^\s]*)?/g
+        ],
+        apple: [
+          /https?:\/\/music\.apple\.com\/[a-z]{2}\/(?:album|playlist)\/[^\s]+/g,
+          /https?:\/\/music\.apple\.com\/[a-z]{2}\/album\/[^\s]+\/id\d+(?:\?i=\d+)?/g
+        ],
+        tidal: [
+          /https?:\/\/(?:www\.)?tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/\d+/g,
+          /https?:\/\/listen\.tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/\d+/g
+        ],
+        amazon: [
+          /https?:\/\/music\.amazon\.com\/(?:albums|playlists)\/[A-Z0-9]+(?:\?[^\s]*)?/g,
+          /https?:\/\/www\.amazon\.com\/music\/player\/(?:tracks|albums|playlists)\/[A-Z0-9]+/g
+        ]
+      };
+
+      // Try each platform's patterns
+      for (const [platform, patterns] of Object.entries(PLATFORM_PATTERNS)) {
+        const arr = Array.isArray(patterns) ? patterns : [patterns];
+
+        for (const pattern of arr) {
+          const matches = text.match(pattern);
+          if (matches && matches.length > 0) {
+            // Return the first match, but clean it up
+            let url = matches[0];
+            
+            // Remove trailing punctuation that might be part of the text but not the URL
+            url = url.replace(/[.,;!?]+$/, '');
+            
+            // Ensure the URL is properly formatted
+            try {
+              new URL(url);
+              return url;
+            } catch (_) {
+              // Invalid URL, continue to next pattern
+            }
+          }
+        }
+      }
+
+      return null;
+    };
+
+    // Extract URL from the input text
+    const extractedUrl = extractUrlFromText(link);
+    if (!extractedUrl) {
+      return null;
+    }
+
+    const url = extractedUrl.trim().toLowerCase();
+
+    const result = {
+      platform: null as string | null,
+      type: null as string | null
+    };
+
+    if (url.includes('spotify.com')) {
+      result.platform = 'spotify';
+      if (url.includes('/playlist/')) result.type = 'playlist';
+      else if (url.includes('/album/')) result.type = 'album';
+      else if (url.includes('/track/')) result.type = 'track';
+    } else if (url.includes('deezer.com') || url.includes('link.deezer.com')) {
+      result.platform = 'deezer';
+      if (url.includes('/track/')) result.type = 'track';
+      else if (url.includes('/album/')) result.type = 'album';
+      else if (url.includes('/playlist/')) result.type = 'playlist';
+    } else if (url.includes('music.youtube.com') || url.includes('youtube.com')) {
+      result.platform = url.includes('music.youtube.com') ? 'ytmusic' : 'youtube';
+      if (url.includes('/playlist?')) result.type = 'playlist';
+      else if (url.includes('/watch?')) result.type = 'track';
+    } else if (url.includes('music.apple.com')) {
+      result.platform = 'applemusic';
+      if (url.includes('/playlist/')) result.type = 'playlist';
+      else if (url.includes('/album/')) result.type = 'album'; // might be track if `?i=`
+    } else if (url.includes('tidal.com') || url.includes('listen.tidal.com')) {
+      result.platform = 'tidal';
+      if (url.includes('/track/')) result.type = 'track';
+      else if (url.includes('/album/')) result.type = 'album';
+      else if (url.includes('/playlist/')) result.type = 'playlist';
+    } else if (url.includes('music.amazon.com') || url.includes('amazon.com/music')) {
+      result.platform = 'amazonmusic';
+      if (url.includes('/albums/')) result.type = 'album';
+      else if (url.includes('/playlists/')) result.type = 'playlist';
+      else if (url.includes('/tracks/')) result.type = 'track';
+    }
+
+    return result.platform ? result as { platform: string; type: string } : null;
   }
 
   const getDetailedError = (error: string, platform?: string) => {

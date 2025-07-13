@@ -200,9 +200,22 @@ app.get('/convert-track', async (req, res) => {
   console.log(`Converting track: ${link} to ${targetPlatform}`);
 
   try {
-    // Resolve metadata from source link
+    // Extract URL from text that might contain additional content
+    const { extractUrlFromText } = await import('./utils/url-extractor.js');
+    const extractedUrl = extractUrlFromText(link);
+    
+    if (!extractedUrl) {
+      return res.status(400).json({ 
+        error: 'No valid music platform URL found in the provided text',
+        providedText: link
+      });
+    }
+
+    console.log(`Extracted URL: ${extractedUrl}`);
+
+    // Resolve metadata from extracted URL
     const { resolveMetadata } = await import('./resolvers/resolvers.js');
-    const metadata = await resolveMetadata(link);
+    const metadata = await resolveMetadata(extractedUrl);
     
     console.log(`Resolved metadata: ${metadata.title} - ${metadata.artist}`);
     
@@ -247,13 +260,26 @@ app.get('/convert-playlist', async (req, res) => {
   }
 
   try {
+    // Extract URL from text that might contain additional content
+    const { extractUrlFromText } = await import('./utils/url-extractor.js');
+    const extractedUrl = extractUrlFromText(link);
+    
+    if (!extractedUrl) {
+      return res.status(400).json({ 
+        error: 'No valid music platform URL found in the provided text',
+        providedText: link
+      });
+    }
+
+    console.log(`Extracted playlist URL: ${extractedUrl}`);
+
     progressMap.set(session, { 
       stage: 'Fetching Deezer playlist...', 
       current: 0, 
       total: 0,
       tracks: []
     });
-    const { name, tracks } = await resolveDeezerPlaylist(link);
+    const { name, tracks } = await resolveDeezerPlaylist(extractedUrl);
     
     // Initialize tracks with pending status
     const trackProgress = tracks.map(track => ({
@@ -483,13 +509,26 @@ app.get('/convert-youtube-playlist', async (req, res) => {
   }
 
   try {
+    // Extract URL from text that might contain additional content
+    const { extractUrlFromText } = await import('./utils/url-extractor.js');
+    const extractedUrl = extractUrlFromText(link);
+    
+    if (!extractedUrl) {
+      return res.status(400).json({ 
+        error: 'No valid music platform URL found in the provided text',
+        providedText: link
+      });
+    }
+
+    console.log(`Extracted YouTube playlist URL: ${extractedUrl}`);
+
     progressMap.set(session, { 
       stage: 'Fetching YouTube playlist...', 
       current: 0, 
       total: 0,
       tracks: []
     });
-    const { name, tracks } = await resolveYouTubePlaylist(link);
+    const { name, tracks } = await resolveYouTubePlaylist(extractedUrl);
     
     // Initialize tracks with pending status
     const trackProgress = tracks.map(track => ({
@@ -810,17 +849,30 @@ app.get('/convert-web-playlist', async (req, res) => {
     return res.status(400).json({ error: 'Missing "link" or "targetPlatform" query parameter' });
   }
 
-  // Detect the source platform from the link
+  // Extract URL from text that might contain additional content
+  const { extractUrlFromText } = await import('./utils/url-extractor.js');
+  const extractedUrl = extractUrlFromText(link);
+  
+  if (!extractedUrl) {
+    return res.status(400).json({ 
+      error: 'No valid music platform URL found in the provided text',
+      providedText: link
+    });
+  }
+
+  console.log(`Extracted web playlist URL: ${extractedUrl}`);
+
+  // Detect the source platform from the extracted URL
   let sourcePlatform = 'applemusic';
-  if (link.includes('music.amazon.com') && link.includes('playlist')) {
+  if (extractedUrl.includes('music.amazon.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'amazonmusic';
-  } else if (link.includes('tidal.com') && link.includes('playlist')) {
+  } else if (extractedUrl.includes('tidal.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'tidal';
-  } else if (link.includes('music.apple.com') && link.includes('playlist')) {
+  } else if (extractedUrl.includes('music.apple.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'applemusic';
   }
 
-  console.log(`Converting ${sourcePlatform} playlist: ${link} to ${targetPlatform}`);
+  console.log(`Converting ${sourcePlatform} playlist: ${extractedUrl} to ${targetPlatform}`);
 
   try {
     // Set initial progress state for all platforms
@@ -840,7 +892,7 @@ app.get('/convert-web-playlist', async (req, res) => {
 
     // Resolve playlist based on source platform
     const { resolvePlaylist } = await import('./resolvers/resolvers.js');
-    const result = await resolvePlaylist(link);
+    const result = await resolvePlaylist(extractedUrl);
     const { name, tracks, error: resolverError, debug } = result;
     
     if (resolverError) {
