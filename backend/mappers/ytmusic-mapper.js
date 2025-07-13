@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import { scoreTrackMatch } from '../utils/fuzzyMatcher.js';
 
 export default async function ytmusicMapper({ title, artist }) {
   const query = encodeURIComponent(`${title} ${artist}`);
@@ -7,40 +8,35 @@ export default async function ytmusicMapper({ title, artist }) {
   const response = await fetch(url);
   const html = await response.text();
 
-  // Extract multiple video IDs and their titles
-  const videoMatches = html.match(/"videoId":"([^"]+)"/g);
-  const titleMatches = html.match(/"title":{"runs":\[{"text":"([^"]+)"}\]}/g);
-  
-  if (!videoMatches || !titleMatches) {
+  // Extract videoIds, titles, and channel names
+  const videoIdMatches = [...html.matchAll(/"videoId":"([^"]+)"/g)];
+  const titleMatches = [...html.matchAll(/"title":\{"runs":\[\{"text":"([^"]+)"\}/g)];
+  const channelMatches = [...html.matchAll(/"ownerText":\{"runs":\[\{"text":"([^"]+)"/g)];
+
+  if (!videoIdMatches.length || !titleMatches.length) {
     return null;
   }
 
-  // Normalize the search terms
-  const normalizedTitle = title.toLowerCase().replace(/[^\w\s]/g, '');
-  const normalizedArtist = artist.toLowerCase().replace(/[^\w\s]/g, '');
-  
-  // Check each video for a good match
-  for (let i = 0; i < Math.min(videoMatches.length, titleMatches.length); i++) {
-    const videoId = videoMatches[i].match(/"videoId":"([^"]+)"/)[1];
-    const videoTitle = titleMatches[i].match(/"title":{"runs":\[{"text":"([^"]+)"}\]}/)[1];
-    
-    const normalizedVideoTitle = videoTitle.toLowerCase().replace(/[^\w\s]/g, '');
-    
-    // Check if the video title contains our search terms
-    const titleMatch = normalizedVideoTitle.includes(normalizedTitle) || normalizedTitle.includes(normalizedVideoTitle);
-    const artistMatch = normalizedVideoTitle.includes(normalizedArtist) || normalizedArtist.includes(normalizedVideoTitle);
-    
-    // If both title and artist are found in the video title, this is likely the correct track
-    if (titleMatch && artistMatch) {
-      return `https://music.youtube.com/watch?v=${videoId}`;
-    }
-    
-    // If title matches exactly and artist is present, also accept it
-    if (normalizedVideoTitle === normalizedTitle && artistMatch) {
-      return `https://music.youtube.com/watch?v=${videoId}`;
-    }
+  const candidates = [];
+  for (let i = 0; i < Math.min(videoIdMatches.length, titleMatches.length); i++) {
+    const videoId = videoIdMatches[i][1];
+    const videoTitle = titleMatches[i][1];
+    const channelTitle = channelMatches[i]?.[1] || '';
+    const score = scoreTrackMatch({ title, artist }, videoTitle, channelTitle);
+    candidates.push({ videoId, videoTitle, channelTitle, score });
   }
 
-  // If no good match found, return null
+  // Sort by best match
+  candidates.sort((a, b) => b.score - a.score);
+
+  // Filter out karaoke/cover/instrumental/tribute channels
+  const badWords = ['karaoke', 'tribute', 'cover', 'instrumental'];
+  const best = candidates.find(c => !badWords.some(w => c.channelTitle.toLowerCase().includes(w)) && c.score >= 85) || candidates[0];
+
+  if (best && best.score >= 85) {
+    return `https://music.youtube.com/watch?v=${best.videoId}`;
+  }
+
+  // If no strong match, optionally fallback to YouTube Data API here (not implemented)
   return null;
 } 
