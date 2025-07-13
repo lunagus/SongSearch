@@ -16,7 +16,7 @@ export function detectPlatform(link) {
   if (url.includes('youtube.com/playlist')) return 'youtube';
   if (url.includes('youtube.com/watch') && url.includes('v=')) return 'youtube';
   if (url.includes('music.apple.com')) return 'applemusic';
-  if (url.includes('tidal.com') || url.includes('listen.tidal.com')) return 'tidal';
+  if (url.includes('tidal.com') || url.includes('listen.tidal.com')) return 'tidal';  
   if (url.includes('music.amazon.com') || url.includes('amazon.com/music')) return 'amazonmusic';
 
   return null;
