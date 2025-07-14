@@ -3,6 +3,7 @@ import deezerMapper from './deezer-mapper.js';
 import ytmusicMapper from './ytmusic-mapper.js';
 import appleMusicMapper from './apple-music-mapper.js';
 import tidalMapper from './tidal-mapper.js';
+// import amazonMusicMapper from './amazon-music-mapper.js';
 
 export async function mapToPlatform(metadata, platform) {
   if (platform === 'spotify') {
@@ -19,6 +20,9 @@ export async function mapToPlatform(metadata, platform) {
   }
   if (platform === 'tidal') {
     return await tidalMapper(metadata);
+  }
+  if (platform === 'amazonmusic') {
+    throw new Error('Amazon Music mapping is temporarily disabled for testing');
   }
 
   throw new Error('Unsupported target platform');

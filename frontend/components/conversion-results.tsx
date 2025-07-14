@@ -20,6 +20,7 @@ interface ConversionResult {
     suggestions: Array<{ title: string; artist: string; id: string }>
   }>
   playlistUrl?: string
+  tracks?: Array<{ title: string; artist: string; status: string; [key: string]: any }>
 }
 
 interface SearchResult {
@@ -42,6 +43,8 @@ interface ConversionResultsProps {
 }
 
 export function ConversionResults({ isOpen, onClose, results, session, targetPlatform }: ConversionResultsProps) {
+  // Debug: log the results prop to inspect backend data
+  console.log('[DEBUG] ConversionResults received:', results);
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({})
   const [selectedReplacements, setSelectedReplacements] = useState<Record<string, string>>({})
   const [searchResults, setSearchResults] = useState<Record<string, SearchResult[]>>({})
@@ -51,8 +54,24 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
   if (!results) return null
 
-  const totalTracks = results.matched.length + results.skipped.length + results.mismatched.length
-  const successRate = Math.round((results.matched.length / totalTracks) * 100)
+  const allTracks = results.tracks || [];
+  const matchedCount = allTracks.filter(t => t.status === "success").length;
+  const failedCount = allTracks.filter(t => t.status === "failed").length;
+  const reviewCount = allTracks.filter(t => t.status === "mismatched").length;
+  const successRate = allTracks.length > 0 ? Math.round((matchedCount / allTracks.length) * 100) : 0;
+
+  // Defensive playlistUrl extraction
+  let playlistUrl = "";
+  if (typeof results.playlistUrl === 'string') {
+    playlistUrl = results.playlistUrl;
+  } else if (
+    results.playlistUrl &&
+    typeof results.playlistUrl === 'object' &&
+    'playlistUrl' in results.playlistUrl &&
+    typeof (results.playlistUrl as any).playlistUrl === 'string'
+  ) {
+    playlistUrl = (results.playlistUrl as any).playlistUrl;
+  }
 
   const handleManualSearch = async (trackKey: string, query: string) => {
     if (!query.trim() || !session || !targetPlatform) return
@@ -83,7 +102,16 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
   }
 
   const handleApplyFixes = async () => {
-    if (!session || !results.playlistUrl || !targetPlatform) {
+    // Debug: print session prop and localStorage value
+    let localSession = undefined;
+    if (targetPlatform === "spotify") localSession = localStorage.getItem("spotify_session") || undefined;
+    else if (targetPlatform === "ytmusic") localSession = localStorage.getItem("yt_session") || undefined;
+    else if (targetPlatform === "deezer") localSession = localStorage.getItem("deezer_session") || undefined;
+    else if (targetPlatform === "applemusic") localSession = localStorage.getItem("apple_session") || undefined;
+    if (!localSession) localSession = localStorage.getItem("spotify_session") || localStorage.getItem("yt_session") || localStorage.getItem("deezer_session") || localStorage.getItem("apple_session") || undefined;
+    console.log('[DEBUG] handleApplyFixes: session prop:', session, 'localStorage session:', localSession);
+    const sessionToUse = localSession || session;
+    if (!sessionToUse || !playlistUrl || !targetPlatform) {
       toast({
         variant: "destructive",
         description: "Missing session or playlist information",
@@ -91,16 +119,28 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
       return
     }
 
+    // In handleApplyFixes, build replacements array to include skips and look up selected ID in both searchResults and suggestions
     const replacements = Object.entries(selectedReplacements).map(([trackKey, replacementId]) => {
       const [title, artist] = trackKey.split(' - ')
-      const searchResult = searchResults[trackKey]?.find(r => r.id === replacementId)
-      
+      if (replacementId === "__skip__") {
+        return {
+          originalTrack: { title, artist },
+          newTrack: null,
+          skip: true,
+          targetPlatform
+        }
+      }
+      // Find the track in searchResults or original suggestions
+      const searchResult =
+        searchResults[trackKey]?.find(r => r.id === replacementId) ||
+        (results.tracks?.find(t => t.status === "mismatched" && t.title === title && t.artist === artist)?.suggestions?.find((s: any) => s.id === replacementId));
       return {
         originalTrack: { title, artist },
         newTrack: searchResult,
+        skip: false,
         targetPlatform
       }
-    }).filter(r => r.newTrack)
+    }).filter(r => r.newTrack || r.skip)
 
     if (replacements.length === 0) {
       toast({
@@ -109,10 +149,12 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
       return
     }
 
+    console.log('[DEBUG] Sending replacements to backend:', JSON.stringify(replacements, null, 2));
+
     setIsApplyingFixes(true)
 
     try {
-      const result = await applyPlaylistFixes(session, results.playlistUrl, replacements)
+      const result = await applyPlaylistFixes(sessionToUse, playlistUrl, replacements)
       
       toast({
         title: "Fixes Applied Successfully! 🎉",
@@ -135,8 +177,9 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
   }
 
   const handleOpenPlaylist = () => {
-    if (results.playlistUrl) {
-      window.open(results.playlistUrl, '_blank')
+    if (playlistUrl) {
+      console.log('playlistUrl type:', typeof playlistUrl, playlistUrl);
+      window.open(playlistUrl, '_blank');
     }
   }
 
@@ -149,7 +192,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-hidden p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
@@ -160,22 +203,22 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
         <div className="space-y-6">
           {/* Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">{results.matched.length}</div>
+                <div className="text-2xl font-bold text-green-600">{matchedCount}</div>
                 <div className="text-sm text-muted-foreground">Successfully Matched</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-red-600">{results.skipped.length}</div>
+                <div className="text-2xl font-bold text-red-600">{failedCount}</div>
                 <div className="text-sm text-muted-foreground">Skipped</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-600">{results.mismatched.length}</div>
+                <div className="text-2xl font-bold text-yellow-600">{reviewCount}</div>
                 <div className="text-sm text-muted-foreground">Need Manual Review</div>
               </CardContent>
             </Card>
@@ -189,23 +232,23 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
           {/* Detailed Results */}
           <Tabs defaultValue="matched" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 mb-2">
               <TabsTrigger value="matched" className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4" />
-                Matched ({results.matched.length})
+                Matched ({matchedCount})
               </TabsTrigger>
               <TabsTrigger value="skipped" className="flex items-center gap-2">
                 <XCircle className="h-4 w-4" />
-                Skipped ({results.skipped.length})
+                Skipped ({failedCount})
               </TabsTrigger>
               <TabsTrigger value="mismatched" className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
-                Review ({results.mismatched.length})
+                Review ({reviewCount})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="matched" className="space-y-2 max-h-60 overflow-y-auto">
-              {results.matched.map((track, index) => (
+            <TabsContent value="matched" className="space-y-2 max-h-80 sm:max-h-96 overflow-y-auto">
+              {allTracks.filter((t) => t.status === "success").map((track, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <div className="flex-1">
@@ -219,26 +262,28 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
               ))}
             </TabsContent>
 
-            <TabsContent value="skipped" className="space-y-2 max-h-60 overflow-y-auto">
-              {results.skipped.map((track, index) => (
+            <TabsContent value="skipped" className="space-y-2 max-h-80 sm:max-h-96 overflow-y-auto">
+              {allTracks.filter((t) => t.status === "failed").map((track, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg">
                   <XCircle className="h-4 w-4 text-red-500" />
                   <div className="flex-1">
                     <p className="font-medium">{track.title}</p>
                     <p className="text-sm text-muted-foreground">{track.artist}</p>
+                    {/* Only render reason if present and is a string */}
+                    {typeof track.reason === 'string' && track.reason && (
                     <p className="text-xs text-red-600 mt-1">{track.reason}</p>
+                    )}
                   </div>
                   <Badge variant="destructive">Skipped</Badge>
                 </div>
               ))}
             </TabsContent>
 
-            <TabsContent value="mismatched" className="space-y-4 max-h-60 overflow-y-auto">
-              {results.mismatched.map((track, index) => {
-                const trackKey = `${track.title} - ${track.artist}`
-                const searchResult = searchResults[trackKey] || []
-                const isSearching = isSearching[trackKey] || false
-                
+            <TabsContent value="mismatched" className="space-y-4 max-h-80 sm:max-h-96 overflow-y-auto">
+              {allTracks.filter((t) => t.status === "mismatched").map((track, index) => {
+                const trackKey = `${track.title} - ${track.artist}`;
+                const searchResult = searchResults[trackKey] || [];
+                const isSearchingTrack = isSearching[trackKey] || false;
                 return (
                   <Card key={index} className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20">
                     <CardHeader className="pb-3">
@@ -267,9 +312,9 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                         <Button 
                           size="sm" 
                           onClick={() => handleManualSearch(trackKey, searchQueries[trackKey] || "")}
-                          disabled={isSearching}
+                          disabled={isSearchingTrack}
                         >
-                          {isSearching ? (
+                          {isSearchingTrack ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <Search className="h-4 w-4" />
@@ -282,7 +327,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                         <div>
                           <p className="text-sm font-medium mb-2">Search results:</p>
                           <div className="space-y-2">
-                            {searchResult.map((result) => (
+                            {searchResult.map((result: any) => (
                               <div key={result.id} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border">
                                 <input
                                   type="radio"
@@ -306,11 +351,11 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                       )}
 
                       {/* Original Suggestions (if any) */}
-                      {track.suggestions && track.suggestions.length > 0 && (
+                      {"suggestions" in track && Array.isArray(track.suggestions) && track.suggestions.length > 0 && (
                       <div>
                           <p className="text-sm font-medium mb-2">Original suggestions:</p>
                         <div className="space-y-2">
-                          {track.suggestions.map((suggestion) => (
+                            {track.suggestions.map((suggestion: any) => (
                               <div key={suggestion.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded border">
                               <input
                                 type="radio"
@@ -328,20 +373,32 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                         </div>
                       </div>
                       )}
+                      {/* Skip this track */}
+                      <div className="flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded border border-dashed border-gray-300 dark:border-gray-600 mt-2">
+                        <input
+                          type="radio"
+                          name={trackKey}
+                          value="__skip__"
+                          checked={selectedReplacements[trackKey] === "__skip__"}
+                          onChange={() => handleSelectReplacement(trackKey, "__skip__")}
+                          className="h-4 w-4"
+                        />
+                        <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Skip this track (do not add to playlist)</span>
+                      </div>
                     </CardContent>
                   </Card>
-                )
+                );
               })}
             </TabsContent>
           </Tabs>
 
           {/* Action Buttons */}
-          <div className="flex justify-between">
+          <div className="flex justify-between mt-6">
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
             <div className="flex gap-2">
-              {results.mismatched.length > 0 && (
+              {reviewCount > 0 && (
                 <Button 
                   onClick={handleApplyFixes} 
                   className="bg-blue-600 hover:bg-blue-700"
@@ -357,7 +414,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                   )}
                 </Button>
               )}
-              {results.playlistUrl && (
+              {playlistUrl && (
                 <Button onClick={handleOpenPlaylist} className="bg-green-600 hover:bg-green-700">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open Playlist

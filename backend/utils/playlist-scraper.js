@@ -1,8 +1,9 @@
-import { chromium } from 'playwright-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import fetch from 'node-fetch';
+// Playlist scraping is temporarily disabled for testing.
+// import { chromium } from 'playwright-extra';
+// import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+// import fetch from 'node-fetch';
 
-chromium.use(StealthPlugin());
+// chromium.use(StealthPlugin());
 
 const sleep = (min = 500, max = 1500) =>
   new Promise(r => setTimeout(r, Math.floor(Math.random() * (max - min)) + min));
@@ -57,17 +58,17 @@ export async function scrapeTidalPlaylist(url) {
 }
 
 export async function scrapeAmazonMusicPlaylist(url) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    viewport: { width: 1366, height: 768 },
-    locale: 'en-US',
-  });
-  const page = await context.newPage();
-  await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
-  await page.goto(url, { waitUntil: 'networkidle' });
-  await sleep(1000, 2000);
-  await page.waitForSelector('music-image-row:not([loading])', { timeout: 15000 });
+  // const browser = await chromium.launch({ headless: true });
+  // const context = await browser.newContext({
+  //   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+  //   viewport: { width: 1366, height: 768 },
+  //   locale: 'en-US',
+  // });
+  // const page = await context.newPage();
+  // await page.setExtraHTTPHeaders({ 'accept-language': 'en-US,en;q=0.9' });
+  // await page.goto(url, { waitUntil: 'networkidle' });
+  // await sleep(1000, 2000);
+  // await page.waitForSelector('music-image-row:not([loading])', { timeout: 15000 });
 
   // Extract playlist metadata
   let metadata = null;
@@ -168,27 +169,27 @@ export async function scrapeAmazonMusicPlaylist(url) {
       return { title, artist, album, image, trackUrl };
     })
   );
-  await browser.close();
+  // await browser.close();
   return { tracks, metadata: { ...metadata, name: playlistName } };
 }
 
 export async function scrapeYouTubeMusicPlaylist(url) {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    viewport: { width: 1366, height: 768 },
-    locale: 'en-US',
-  });
-  const page = await context.newPage();
-  await page.goto(url, { waitUntil: 'networkidle' });
-  await sleep(1000, 2000);
-  await page.waitForSelector('ytd-playlist-video-renderer', { timeout: 10000 });
+  // const browser = await chromium.launch({ headless: true });
+  // const context = await browser.newContext({
+  //   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+  //   viewport: { width: 1366, height: 768 },
+  //   locale: 'en-US',
+  // });
+  // const page = await context.newPage();
+  // await page.goto(url, { waitUntil: 'networkidle' });
+  // await sleep(1000, 2000);
+  // await page.waitForSelector('ytd-playlist-video-renderer', { timeout: 10000 });
   const tracks = await page.evaluate(() =>
     Array.from(document.querySelectorAll('ytd-playlist-video-renderer')).map(el => ({
       title: el.querySelector('#video-title')?.textContent.trim(),
       artist: el.querySelector('a.yt-simple-endpoint.yt-formatted-string')?.textContent.trim(),
     }))
   );
-  await browser.close();
+  // await browser.close();
   return tracks;
 } 

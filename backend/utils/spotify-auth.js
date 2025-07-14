@@ -68,6 +68,10 @@ export async function getTokensFromRefresh(refreshToken) {
 }
 
 export async function getSpotifyAccessToken() {
+  console.log('[DEBUG] getSpotifyAccessToken called');
+  console.log('[DEBUG] Client ID configured:', !!clientId);
+  console.log('[DEBUG] Client Secret configured:', !!clientSecret);
+  
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -76,6 +80,18 @@ export async function getSpotifyAccessToken() {
     },
     body: 'grant_type=client_credentials',
   });
+  
+  console.log('[DEBUG] Token request response status:', response.status);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[DEBUG] Token request failed:', errorText);
+    throw new Error(`Failed to get Spotify access token: ${response.status} - ${errorText}`);
+  }
+  
   const data = await response.json();
+  console.log('[DEBUG] Token request successful, token type:', data.token_type);
+  console.log('[DEBUG] Token expires in:', data.expires_in, 'seconds');
+  
   return data.access_token;
 }

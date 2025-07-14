@@ -87,6 +87,7 @@ app.get('/callback', async (req, res) => {
     userSessions.set(state, {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
+      platform: 'spotify'
     });
 
     res.redirect(`http://127.0.0.1:3000/login-success?session=${state}`);
@@ -118,6 +119,7 @@ app.get('/youtube/callback', async (req, res) => {
     userSessions.set(state, {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
+      platform: 'youtube'
     });
     res.redirect(`http://127.0.0.1:3000/login-success?youtube_session=${state}`);
   } catch (err) {
@@ -148,11 +150,86 @@ app.get('/deezer/callback', async (req, res) => {
     userSessions.set(state, {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
+      platform: 'deezer'
     });
     res.redirect(`http://127.0.0.1:3000/login-success?deezer_session=${state}`);
   } catch (err) {
     console.error('Deezer OAuth error:', err);
     res.status(500).send('Authentication failed');
+  }
+});
+
+// Deezer ARL validation endpoint
+app.post('/deezer/validate-arl', async (req, res) => {
+  console.log('[DEBUG] /deezer/validate-arl endpoint called');
+  console.log('[DEBUG] Request body:', JSON.stringify(req.body, null, 2));
+  
+  const { arl } = req.body;
+  
+  if (!arl) {
+    console.error('[DEBUG] ARL validation failed: Missing ARL token in request body');
+    return res.status(400).json({ 
+      success: false,
+      error: 'ARL token is required' 
+    });
+  }
+
+  console.log('[DEBUG] ARL token received, length:', arl.length);
+  console.log('[DEBUG] ARL token preview:', arl.substring(0, 10) + '...');
+
+  try {
+    console.log('[DEBUG] Importing validateDeezerARL function...');
+    const { validateDeezerARL } = await import('./mappers/deezer-playlist-mapper.js');
+    console.log('[DEBUG] Function imported successfully');
+    
+    console.log('[DEBUG] Calling validateDeezerARL...');
+    const validation = await validateDeezerARL(arl);
+    console.log('[DEBUG] Validation result:', JSON.stringify(validation, null, 2));
+    
+    if (validation.valid) {
+      console.log('[DEBUG] ARL validation successful, creating session...');
+      
+      // Generate a session ID for the ARL token
+      const sessionId = `deezer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Store the ARL token in the session
+      userSessions.set(sessionId, { 
+        arlToken: arl,
+        user: validation.user,
+        platform: 'deezer'
+      });
+      
+      console.log('[DEBUG] Stored Deezer ARL session:', sessionId);
+      console.log('[DEBUG] Session data:', JSON.stringify(userSessions.get(sessionId), null, 2));
+      
+      res.json({ 
+        success: true, 
+        session: sessionId,
+        user: validation.user 
+      });
+    } else {
+      console.error('[DEBUG] ARL validation failed:', validation.error);
+      res.status(401).json({ 
+        success: false, 
+        error: validation.error 
+      });
+    }
+  } catch (error) {
+    console.error('[DEBUG] Unexpected error in /deezer/validate-arl endpoint:');
+    console.error('[DEBUG] Error name:', error.name);
+    console.error('[DEBUG] Error message:', error.message);
+    console.error('[DEBUG] Error stack:', error.stack);
+    console.error('[DEBUG] Full error object:', error);
+    
+    // Return more detailed error information for debugging
+    res.status(500).json({ 
+      success: false, 
+      error: error?.message || 'Unknown server error during ARL validation',
+      details: process.env.NODE_ENV === 'development' ? {
+        name: error?.name,
+        stack: error?.stack
+      } : undefined
+    });
   }
 });
 
@@ -181,6 +258,7 @@ app.get('/progress/:session', (req, res) => {
 app.get('/conversion-results/:session', (req, res) => {
   const session = req.params.session;
   const results = conversionResultsMap.get(session);
+  console.log('[DEBUG] Returning conversionResults for session', session, JSON.stringify(results, null, 2));
   
   if (!results) {
     return res.status(404).json({ error: 'No conversion results found for this session' });
@@ -305,7 +383,7 @@ app.get('/convert-playlist', async (req, res) => {
       total: tracks.length,
       tracks: trackProgress
     });
-    const url = await createSpotifyPlaylist(
+    const result = await createSpotifyPlaylist(
       token,
       name,
       tracks,
@@ -345,28 +423,9 @@ app.get('/convert-playlist', async (req, res) => {
       total: tracks.length,
       tracks: trackProgress
     });
-    
-    // Store conversion results
-    const matched = trackProgress.filter(track => track.status === 'success').map(track => ({
-      title: track.title,
-      artist: track.artist,
-      status: 'success'
-    }));
-    
-    const skipped = trackProgress.filter(track => track.status === 'failed').map(track => ({
-      title: track.title,
-      artist: track.artist,
-      reason: 'Not found on target platform'
-    }));
-    
-    const conversionResults = {
-      matched,
-      skipped,
-      mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: url
-    };
-    
-    conversionResultsMap.set(session, conversionResults);
+    // Store the full result from createSpotifyPlaylist
+    console.log('[DEBUG] SET conversionResultsMap', session, JSON.stringify(result, null, 2));
+    conversionResultsMap.set(session, result);
     
     // Clean up progress data after 1 min, but keep results for 5 minutes
     setTimeout(() => progressMap.delete(session), 60000);
@@ -476,9 +535,11 @@ app.get('/convert-to-youtube', async (req, res) => {
       matched,
       skipped,
       mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: youtubeUrl
+      playlistUrl: youtubeUrl,
+      tracks: trackProgress
     };
     
+    console.log('[DEBUG] SET conversionResultsMap', ytSession, JSON.stringify(conversionResults, null, 2));
     conversionResultsMap.set(ytSession, conversionResults);
     
     // Clean up progress data after 1 min, but keep results for 5 minutes
@@ -593,7 +654,8 @@ app.get('/convert-youtube-playlist', async (req, res) => {
       matched,
       skipped,
       mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: url
+      playlistUrl: url,
+      tracks: trackProgress
     };
     
     conversionResultsMap.set(session, conversionResults);
@@ -707,9 +769,11 @@ app.get('/convert-spotify-to-deezer', async (req, res) => {
       matched,
       skipped,
       mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: deezerUrl
+      playlistUrl: deezerUrl,
+      tracks: trackProgress
     };
     
+    console.log('[DEBUG] SET conversionResultsMap', spSession, JSON.stringify(conversionResults, null, 2));
     conversionResultsMap.set(spSession, conversionResults);
     
     // Clean up progress data after 1 min, but keep results for 5 minutes
@@ -821,9 +885,11 @@ app.get('/convert-youtube-to-deezer', async (req, res) => {
       matched,
       skipped,
       mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: deezerUrl
+      playlistUrl: deezerUrl,
+      tracks: trackProgress
     };
     
+    console.log('[DEBUG] SET conversionResultsMap', ytSession, JSON.stringify(conversionResults, null, 2));
     conversionResultsMap.set(ytSession, conversionResults);
     
     // Clean up progress data after 1 min, but keep results for 5 minutes
@@ -863,16 +929,31 @@ app.get('/convert-web-playlist', async (req, res) => {
   console.log(`Extracted web playlist URL: ${extractedUrl}`);
 
   // Detect the source platform from the extracted URL
-  let sourcePlatform = 'applemusic';
-  if (extractedUrl.includes('music.amazon.com') && extractedUrl.includes('playlist')) {
+  let sourcePlatform = 'unknown';
+  if (extractedUrl.includes('open.spotify.com') || extractedUrl.includes('spotify.com')) {
+    sourcePlatform = 'spotify';
+  } else if (extractedUrl.includes('music.amazon.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'amazonmusic';
   } else if (extractedUrl.includes('tidal.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'tidal';
   } else if (extractedUrl.includes('music.apple.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'applemusic';
+  } else if (extractedUrl.includes('deezer.com') && extractedUrl.includes('playlist')) {
+    sourcePlatform = 'deezer';
+  } else if (extractedUrl.includes('youtube.com') || extractedUrl.includes('music.youtube.com')) {
+    sourcePlatform = 'ytmusic';
   }
 
   console.log(`Converting ${sourcePlatform} playlist: ${extractedUrl} to ${targetPlatform}`);
+
+  // Validate source platform
+  if (sourcePlatform === 'unknown') {
+    return res.status(400).json({ 
+      error: 'Unsupported source platform',
+      message: 'The provided URL is not from a supported music platform',
+      providedUrl: extractedUrl
+    });
+  }
 
   try {
     // Set initial progress state for all platforms
@@ -885,18 +966,92 @@ app.get('/convert-web-playlist', async (req, res) => {
     // Check if target platform requires authentication
     if (targetPlatform === 'spotify' || targetPlatform === 'ytmusic' || targetPlatform === 'deezer') {
       const user = userSessions.get(session);
+      if (targetPlatform === 'deezer') {
+        // For Deezer, check for arlToken
+        if (!user?.arlToken) {
+          return res.status(401).json({ error: 'Deezer ARL token required for playlist creation' });
+        }
+        
+        // Note: Spotify session check removed - we now handle public vs private playlists
+        // in the resolver logic above, so we don't need to require Spotify authentication here
+      } else {
+        // For other platforms, check for accessToken
       if (!user?.accessToken) {
         return res.status(401).json({ error: 'Authentication required for target platform' });
+        }
       }
     }
 
     // Resolve playlist based on source platform
+    let result;
+    if (sourcePlatform === 'spotify') {
+      // For Spotify, first check if we have a user session with Spotify access token
+      let spotifyAccessToken = null;
+      let spotifySessionId = null;
+      
+      // Look for a Spotify session in userSessions
+      for (const [sessionId, sessionData] of userSessions.entries()) {
+        if (sessionData.accessToken && sessionData.platform === 'spotify') {
+          spotifyAccessToken = sessionData.accessToken;
+          spotifySessionId = sessionId;
+          break;
+        }
+      }
+      
+      console.log('[DEBUG] Spotify session found:', !!spotifyAccessToken);
+      console.log('[DEBUG] Spotify session ID:', spotifySessionId);
+      
+      if (spotifyAccessToken) {
+        // Use authenticated access with user's token
+        console.log('[DEBUG] Using authenticated Spotify access');
+        const { resolveSpotifyPlaylistWithToken } = await import('./resolvers/spotify-playlist-resolver.js');
+        result = await resolveSpotifyPlaylistWithToken(extractedUrl, spotifyAccessToken);
+      } else {
+        // No Spotify session found, try public access
+        console.log('[DEBUG] No Spotify session found, trying public access');
+        const { resolveSpotifyPlaylistPublic } = await import('./resolvers/spotify-playlist-resolver.js');
+        result = await resolveSpotifyPlaylistPublic(extractedUrl);
+        
+        // If public access fails with 404, it might be a private playlist
+        if (result.error && result.error.includes('Playlist not found or is private')) {
+          console.log('[DEBUG] Public access failed, playlist might be private');
+          result.error = 'This Spotify playlist appears to be private. Please log in with Spotify to access it.';
+          result.requiresAuth = true;
+        }
+      }
+    } else {
+      // For other platforms, use the standard resolver
     const { resolvePlaylist } = await import('./resolvers/resolvers.js');
-    const result = await resolvePlaylist(extractedUrl);
-    const { name, tracks, error: resolverError, debug } = result;
+      result = await resolvePlaylist(extractedUrl);
+    }
+    
+    const { name, tracks, error: resolverError, debug, requiresAuth } = result;
     
     if (resolverError) {
       console.warn(`[${sourcePlatform}] Playlist resolver error:`, resolverError);
+      
+      // Update progress to show error state
+      progressMap.set(session, {
+        stage: 'Error',
+        error: resolverError,
+        current: 0,
+        total: 0,
+        tracks: []
+      });
+      
+      // If authentication is required, return 401 status
+      if (requiresAuth) {
+        return res.status(401).json({
+          error: resolverError,
+          requiresAuth: true,
+          platform: 'spotify',
+          debug,
+          playlistName: name,
+          sourcePlatform,
+          totalTracks: tracks ? tracks.length : 0
+        });
+      }
+      
       return res.status(200).json({
         error: resolverError,
         debug,
@@ -909,6 +1064,15 @@ app.get('/convert-web-playlist', async (req, res) => {
     console.log(`Resolved ${sourcePlatform} playlist: ${name} with ${tracks.length} tracks`);
 
     if (!tracks || tracks.length === 0) {
+      // Update progress to show error state
+      progressMap.set(session, {
+        stage: 'Error',
+        error: `No tracks found in ${sourcePlatform} playlist`,
+        current: 0,
+        total: 0,
+        tracks: []
+      });
+      
       return res.status(200).json({ 
         error: `No tracks found in ${sourcePlatform} playlist`,
         playlistName: name,
@@ -923,8 +1087,7 @@ app.get('/convert-web-playlist', async (req, res) => {
     // Convert to target platform
     if (targetPlatform === 'spotify') {
       const user = userSessions.get(session);
-      const { createSpotifyPlaylist } = await import('./mappers/deezer-to-spotify-playlist-mapper.js');
-      // Set description for Amazon Music
+      let mappingResult;
       let playlistDescription = '';
       if (sourcePlatform === 'amazonmusic') {
         playlistDescription = '(Converted from Amazon Music using SongSeek)';
@@ -947,13 +1110,16 @@ app.get('/convert-web-playlist', async (req, res) => {
         total: tracks.length,
         tracks: trackProgress
       });
-      playlistUrl = await createSpotifyPlaylist(
+      // Dynamically select the correct mapping function for each source platform
+      if (sourcePlatform === 'deezer' || sourcePlatform === 'applemusic' || sourcePlatform === 'amazonmusic' || sourcePlatform === 'tidal' || sourcePlatform === 'ytmusic') {
+        // For now, use createSpotifyPlaylist for all, but this is where you would swap in the correct mapper for each
+        const { createSpotifyPlaylist } = await import('./mappers/deezer-to-spotify-playlist-mapper.js');
+        mappingResult = await createSpotifyPlaylist(
         user.accessToken,
         name,
         tracks,
         (added, trackInfo) => {
           if (trackInfo) {
-            // Update specific track status
             const trackIndex = trackProgress.findIndex(t =>
               t.title === trackInfo.title && t.artist === trackInfo.artist
             );
@@ -961,7 +1127,6 @@ app.get('/convert-web-playlist', async (req, res) => {
               trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
             }
           } else {
-            // Update track statuses based on what was added
             for (let i = 0; i < added && i < trackProgress.length; i++) {
               trackProgress[i].status = 'success';
             }
@@ -977,29 +1142,54 @@ app.get('/convert-web-playlist', async (req, res) => {
         (newAccessToken, newRefreshToken) => {
           userSessions.set(session, { accessToken: newAccessToken, refreshToken: newRefreshToken });
         },
-        playlistDescription // pass description if supported
-      );
+          playlistDescription
+        );
+      } else {
+        // fallback: treat as Deezer for now
+        const { createSpotifyPlaylist } = await import('./mappers/deezer-to-spotify-playlist-mapper.js');
+        mappingResult = await createSpotifyPlaylist(
+          user.accessToken,
+          name,
+          tracks,
+          (added, trackInfo) => {
+            if (trackInfo) {
+              const trackIndex = trackProgress.findIndex(t =>
+                t.title === trackInfo.title && t.artist === trackInfo.artist
+              );
+              if (trackIndex !== -1) {
+                trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
+              }
+            } else {
+              for (let i = 0; i < added && i < trackProgress.length; i++) {
+                trackProgress[i].status = 'success';
+              }
+            }
+            progressMap.set(session, {
+              stage: 'Adding tracks to Spotify playlist...',
+              current: added,
+              total: tracks.length,
+              tracks: trackProgress
+            });
+          },
+          user.refreshToken,
+          (newAccessToken, newRefreshToken) => {
+            userSessions.set(session, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+          },
+          playlistDescription
+        );
+      }
       progressMap.set(session, {
         stage: 'Done',
         current: tracks.length,
         total: tracks.length,
         tracks: trackProgress
       });
-      // Build conversion results for frontend
-      const matched = tracks.map(track => ({
-        title: track.title,
-        artist: track.artist,
-        status: 'success'
-      }));
-      conversionResults = {
-        matched,
-        skipped: [],
-        mismatched: [],
-        playlistUrl: playlistUrl
-      };
+      // Store and return the categorized results (only once, no fallback/duplicate)
+      const { matched, mismatched, skipped, playlistUrl } = mappingResult;
+      const conversionResults = { matched, mismatched, skipped, playlistUrl };
+      console.log('[DEBUG] Storing conversionResults for session', session, JSON.stringify(conversionResults, null, 2));
       conversionResultsMap.set(session, conversionResults);
       setTimeout(() => conversionResultsMap.delete(session), 300000);
-      // Always return session in response
       res.json({
         success: true,
         session,
@@ -1028,16 +1218,80 @@ app.get('/convert-web-playlist', async (req, res) => {
       playlistUrl = youtubePlaylist;
     } else if (targetPlatform === 'deezer') {
       const user = userSessions.get(session);
-      const { createDeezerPlaylistFromApple } = await import('./mappers/apple-to-deezer-playlist-mapper.js');
       
-      playlistUrl = await createDeezerPlaylistFromApple(
-        user.accessToken,
+      // Initialize progress tracking for Deezer
+      const trackProgress = tracks.map(track => ({
+        title: track.title,
+        artist: track.artist,
+        status: 'pending'
+      }));
+      
+      progressMap.set(session, {
+        stage: 'Creating Deezer playlist...',
+        current: 0,
+        total: tracks.length,
+        tracks: trackProgress
+      });
+      
+      const { createDeezerPlaylistWithAPI } = await import('./mappers/deezer-playlist-mapper.js');
+      
+      const result = await createDeezerPlaylistWithAPI(
+        user.arlToken,
         name,
         tracks,
-        (current) => {
-          console.log(`Processed ${current} tracks for Deezer`);
+        (successful, trackInfo) => {
+          if (trackInfo) {
+            const trackIndex = trackProgress.findIndex(t =>
+              t.title === trackInfo.title && t.artist === trackInfo.artist
+            );
+            if (trackIndex !== -1) {
+              trackProgress[trackIndex].status = trackInfo.found ? 'success' : 'failed';
+            }
+          }
+          progressMap.set(session, {
+            stage: 'Adding tracks to Deezer playlist...',
+            current: successful,
+            total: tracks.length,
+            tracks: trackProgress
+          });
         }
       );
+      
+      playlistUrl = result.playlistUrl;
+      
+      // Store conversion results for Deezer
+      const matchedTracks = result.summary.successful > 0
+        ? tracks.slice(0, result.summary.successful).map(track => ({
+            title: track.title,
+            artist: track.artist,
+            status: 'success'
+          }))
+        : [];
+
+      const skippedTracks = result.summary.errors.map(error => ({
+        title: error.originalTrack.title,
+        artist: error.originalTrack.artist,
+        status: 'failed',
+        reason: error.error
+      }));
+
+      const conversionResults = {
+        matched: matchedTracks,
+        skipped: skippedTracks.map(({ reason, ...rest }) => rest), // keep old structure for skipped
+        mismatched: [],
+        playlistUrl: result.playlistUrl,
+        tracks: [...matchedTracks, ...skippedTracks]
+      };
+      
+      conversionResultsMap.set(session, conversionResults);
+      setTimeout(() => conversionResultsMap.delete(session), 300000);
+      
+      progressMap.set(session, {
+        stage: 'Done',
+        current: tracks.length,
+        total: tracks.length,
+        tracks: trackProgress
+      });
     } else {
       return res.status(400).json({ error: 'Unsupported target platform' });
     }
@@ -1054,6 +1308,16 @@ app.get('/convert-web-playlist', async (req, res) => {
 
   } catch (err) {
     console.error(`${sourcePlatform} playlist conversion error:`, err);
+    
+    // Update progress to show error state
+    progressMap.set(session, {
+      stage: 'Error',
+      error: err.message,
+      current: 0,
+      total: 0,
+      tracks: []
+    });
+    
     res.status(500).json({ 
       error: `Error converting ${sourcePlatform} playlist`,
       message: err.message 
@@ -1136,10 +1400,21 @@ app.get('/api/check-session', (req, res) => {
     return res.status(400).json({ error: 'Missing platform or session parameter' });
   }
   const user = userSessions.get(session);
+  
+  if (platform === 'deezer') {
+    // For Deezer, check if we have an ARL token
+    if (user?.arlToken) {
+      return res.status(200).json({ valid: true });
+    } else {
+      return res.status(401).json({ valid: false });
+    }
+  } else {
+    // For other platforms, check for accessToken
   if (user?.accessToken) {
     return res.status(200).json({ valid: true });
   } else {
     return res.status(401).json({ valid: false });
+    }
   }
 });
 

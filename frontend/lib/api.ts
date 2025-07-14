@@ -74,6 +74,7 @@ export async function getConversionResults(session: string) {
   const res = await fetch(url, { method: "GET" });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
+  console.log('[DEBUG] Fetched conversion results:', data);
   return data;
 }
 
@@ -88,11 +89,13 @@ export async function searchTracks(platform: string, query: string, limit: numbe
     params.append('session', session);
   }
   
-  const url = `${API_BASE_URL}/search/${platform}?${params.toString()}`;
+  const url = platform === 'spotify'
+    ? `${API_BASE_URL}/fix/search/spotify?${params.toString()}`
+    : `${API_BASE_URL}/search/${platform}?${params.toString()}`;
   const res = await fetch(url, { method: "GET" });
   if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
-  return data.results;
+  return Array.isArray(data) ? data : data.results;
 }
 
 export async function searchAllPlatforms(query: string, limit: number = 5, session?: string) {
@@ -114,7 +117,10 @@ export async function searchAllPlatforms(query: string, limit: number = 5, sessi
 
 // Manual fix functionality
 export async function applyPlaylistFixes(session: string, playlistUrl: string, replacements: any[]) {
-  const url = `${API_BASE_URL}/fix/playlist`;
+  const url = `${API_BASE_URL}/fix/fix-playlist-tracks`;
+  console.log('[DEBUG] applyPlaylistFixes: sending request to', url);
+  console.log('[DEBUG] applyPlaylistFixes: request body', { session, playlistUrl, replacements });
+  
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -126,8 +132,13 @@ export async function applyPlaylistFixes(session: string, playlistUrl: string, r
       replacements
     })
   });
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
+  
+  console.log('[DEBUG] applyPlaylistFixes: response status', res.status);
+  const responseText = await res.text();
+  console.log('[DEBUG] applyPlaylistFixes: response body', responseText);
+  
+  if (!res.ok) throw new Error(responseText);
+  const data = JSON.parse(responseText);
   return data;
 }
 
@@ -178,6 +189,15 @@ export async function convertWebPlaylist(link: string, targetPlatform: string, s
   
   if (!res.ok) {
     const errorData = await res.json();
+    
+    // Handle 401 authentication required responses
+    if (res.status === 401 && errorData.requiresAuth) {
+      const authError = new Error(errorData.error || 'Authentication required');
+      (authError as any).requiresAuth = true;
+      (authError as any).platform = errorData.platform;
+      throw authError;
+    }
+    
     throw new Error(errorData.message || errorData.error || await res.text());
   }
   
@@ -188,5 +208,54 @@ export async function convertWebPlaylist(link: string, targetPlatform: string, s
     throw new Error(data.error);
   }
   
+  return data;
+} 
+
+export async function validateDeezerARL(arl: string) {
+  console.log('[DEBUG] validateDeezerARL called with ARL length:', arl?.length);
+  console.log('[DEBUG] ARL preview:', arl?.substring(0, 10) + '...');
+  
+  const url = `${API_BASE_URL}/deezer/validate-arl`;
+  console.log('[DEBUG] Making request to:', url);
+  
+  const requestBody = { arl };
+  console.log('[DEBUG] Request body:', JSON.stringify(requestBody, null, 2));
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody)
+  });
+  
+  console.log('[DEBUG] Response status:', res.status);
+  console.log('[DEBUG] Response headers:', Object.fromEntries(res.headers.entries()));
+  
+  const responseText = await res.text();
+  console.log('[DEBUG] Response body:', responseText);
+  
+  if (!res.ok) {
+    let errorData;
+    try {
+      errorData = JSON.parse(responseText);
+    } catch (e) {
+      console.error('[DEBUG] Failed to parse error response as JSON:', e);
+      throw new Error(`HTTP ${res.status}: ${responseText}`);
+    }
+    
+    console.error('[DEBUG] ARL validation failed:', errorData);
+    throw new Error(errorData.error || errorData.message || 'Failed to validate ARL token');
+  }
+  
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    console.error('[DEBUG] Failed to parse success response as JSON:', e);
+    throw new Error('Invalid JSON response from server');
+  }
+  
+  console.log('[DEBUG] ARL validation successful:', data);
   return data;
 } 

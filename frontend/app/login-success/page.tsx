@@ -35,7 +35,7 @@ export default function LoginSuccess() {
   }
 
   useEffect(() => {
-    // Fix: Accept both 'session' and 'spotify_session' for Spotify
+    // Accept both 'session' and 'spotify_session' for Spotify
     const spotifySession = searchParams.get("spotify_session") || searchParams.get("session");
     const ytSession = searchParams.get("yt_session");
     const deezerSession = searchParams.get("deezer_session");
@@ -44,22 +44,31 @@ export default function LoginSuccess() {
     let detectedPlatform = "";
     let sessionKey = "";
 
+    // Only set in localStorage if a new session is provided
     if (spotifySession) {
       detectedPlatform = "Spotify";
       sessionKey = "spotify_session";
-      localStorage.setItem(sessionKey, spotifySession);
+      if (localStorage.getItem(sessionKey) !== spotifySession) {
+        localStorage.setItem(sessionKey, spotifySession);
+      }
     } else if (ytSession) {
       detectedPlatform = "YouTube";
       sessionKey = "yt_session";
-      localStorage.setItem(sessionKey, ytSession);
+      if (localStorage.getItem(sessionKey) !== ytSession) {
+        localStorage.setItem(sessionKey, ytSession);
+      }
     } else if (deezerSession) {
       detectedPlatform = "Deezer";
       sessionKey = "deezer_session";
-      localStorage.setItem(sessionKey, deezerSession);
+      if (localStorage.getItem(sessionKey) !== deezerSession) {
+        localStorage.setItem(sessionKey, deezerSession);
+      }
     } else if (appleSession) {
       detectedPlatform = "Apple Music";
       sessionKey = "apple_session";
-      localStorage.setItem(sessionKey, appleSession);
+      if (localStorage.getItem(sessionKey) !== appleSession) {
+        localStorage.setItem(sessionKey, appleSession);
+      }
     }
 
     if (detectedPlatform) {

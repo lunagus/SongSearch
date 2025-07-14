@@ -138,7 +138,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-hidden p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Music className="h-5 w-5" />
@@ -174,7 +174,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 mt-4 max-h-60 overflow-y-auto">
+              <CollapsibleContent className="space-y-2 mt-4 max-h-80 sm:max-h-96 overflow-y-auto">
                 {tracks.map((track, index) => (
                   <div
                     key={index}
@@ -197,7 +197,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 mt-6">
             {progress === 100 || currentStage === "Done" ? (
               <Button onClick={onViewResults || onClose} className="bg-green-600 hover:bg-green-700">
                 <CheckCircle className="h-4 w-4 mr-2" />

@@ -12,6 +12,8 @@ export async function fetchAllDeezerPlaylistTracks(playlistId) {
     allTracks = allTracks.concat(data.data.map(track => ({
       title: track.title,
       artist: track.artist.name,
+      duration: track.duration,
+      album: track.album?.title || ''
     })));
     if (data.data.length < limit) break;
     index += limit;

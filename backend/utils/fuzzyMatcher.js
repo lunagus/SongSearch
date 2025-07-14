@@ -9,19 +9,67 @@ function normalize(str) {
     .trim();
 }
 
+function normalizeAlbum(str) {
+  return normalize(str)
+    .replace(/remaster(ed)?|deluxe|greatest hits|expanded|edition|version|bonus|explicit|clean|single|ep|album|live|session|sessions/g, '')
+    .trim();
+}
+
+function hasRemaster(str) {
+  return /remaster(ed)?|remasterizado|remastered/i.test(str);
+}
+
 /**
  * Computes a similarity score between target and candidate metadata.
- * Weighted 70% on title match, 30% on artist match.
+ * Returns an object with total score, component scores, and matchType ('perfect', 'partial', 'none').
  */
-export function scoreTrackMatch({ title, artist }, candidateTitle, candidateArtist = '') {
+export function scoreTrackMatch({ title, artist, duration, album }, candidate) {
   const inputTitle = normalize(title);
   const inputArtist = normalize(artist);
-  const compTitle = normalize(candidateTitle);
-  const compArtist = normalize(candidateArtist);
+  const inputAlbum = normalizeAlbum(album || '');
+  const compTitle = normalize(candidate.title);
+  const compArtist = normalize(candidate.artist);
+  const compAlbum = normalizeAlbum(candidate.album || '');
 
-  const titleScore = fuzz.token_set_ratio(inputTitle, compTitle); // handles reordered words
-  const artistScore = fuzz.token_set_ratio(inputArtist, compArtist);
+  let titleScore = fuzz.token_set_ratio(inputTitle, compTitle) / 100;
+  const remasterA = hasRemaster(title);
+  const remasterB = hasRemaster(candidate.title);
+  if (remasterA && remasterB) titleScore += 0.05;
+  else if (remasterA !== remasterB) titleScore -= 0.1;
+  titleScore = Math.max(0, Math.min(1, titleScore));
 
-  const totalScore = Math.round(0.7 * titleScore + 0.3 * artistScore);
-  return totalScore;
+  const artistScore = fuzz.token_set_ratio(inputArtist, compArtist) / 100;
+  const albumScore = fuzz.token_set_ratio(inputAlbum, compAlbum) / 100;
+
+  let durationScore = 0;
+  if (typeof duration === 'number' && typeof candidate.duration === 'number') {
+    const diff = Math.abs(duration - candidate.duration);
+    durationScore = 1 - Math.min(10, diff) / 10;
+  } else {
+    durationScore = 1; // If duration missing, don't penalize
+  }
+
+  const totalScore = 0.4 * titleScore + 0.3 * durationScore + 0.2 * artistScore + 0.1 * albumScore;
+
+  const thresholds = {
+    title: 0.8,
+    artist: 0.7,
+    duration: 0.7,
+    album: 0.4,
+  };
+
+  let matchType = 'none';
+  if (
+    titleScore >= thresholds.title &&
+    artistScore >= thresholds.artist &&
+    durationScore >= thresholds.duration
+  ) {
+    matchType = albumScore >= thresholds.album ? 'perfect' : 'partial';
+  } else if (titleScore > 0.5 || artistScore > 0.5) {
+    matchType = 'partial';
+  }
+
+  // Debug log
+  console.log('[DEBUG] Component Scores:', { titleScore, artistScore, durationScore, albumScore, totalScore, matchType });
+  return { matchType, score: totalScore, titleScore, artistScore, durationScore, albumScore };
 } 

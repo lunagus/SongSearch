@@ -29,8 +29,8 @@ I got tired of trying to find a suitable tool that would let me convert large De
 ### 🔄 Cross-Platform Playlist Conversion
 | Source        | Target(s)                | Supported |
 |---------------|--------------------------|-----------|
-| Spotify       | YouTube Music            | ✅        |
-| YouTube Music | Spotify                  | ✅        |
+| Spotify       | YouTube Music, Deezer    | ✅        |
+| YouTube Music | Spotify, Deezer          | ✅        |
 | Deezer        | Spotify, YouTube Music   | ✅        |
 | Apple Music   | Spotify, YouTube Music   | ✅        |
 | Tidal         | Spotify, YouTube Music   | ✅        |
@@ -56,19 +56,19 @@ I got tired of trying to find a suitable tool that would let me convert large De
 |----------------|----------------|----------------|------------------|--------|-------|
 | Spotify        | ✅              | ✅             | ✅               | ✅     | ✅    |
 | YouTube Music  | ✅              | ✅             | ✅               | ✅     | ✅    |
-| Deezer         | ✅              | ⌛             | ✅               | ✅     | ⌛    |
+| Deezer         | ✅              | ✅             | ✅               | ✅     | ⌛    |
 | Apple Music    | ✅              | ❌             | ✅               | ✅     | ❌    |
 | Tidal          | ✅              | ❌             | ✅               | ✅     | ❌    |
 | Amazon Music   | ✅              | ❌             | ✅               | ✅     | ❌    |
 
 > 🔹 Note: YouTube Music has quota limits — large conversions may exhaust daily tokens.
 
-> 🔹 Deezer Status: Playlist export requires OAuth, but Deezer's developer portal is temporarily closed for new applications. Track conversion and search work via public API.
+> 🔹 Deezer Status: Playlist import and export are now fully supported! Track conversion and search work via public API. OAuth for Deezer is still limited due to developer portal restrictions, but ARL token login is supported.
 
 ### What This Means:
 - **Spotify**: Full bidirectional support (import/export playlists, track conversion, search, OAuth)
 - **YouTube Music**: Full bidirectional support (import/export playlists, track conversion, search, OAuth)
-- **Deezer**: Import playlists and convert tracks (export blocked by developer portal closure)
+- **Deezer**: Full bidirectional support (import/export playlists, track conversion, search; ARL login required)
 - **Apple Music**: Import playlists via web scraping, convert individual tracks, search
 - **Tidal**: Import playlists and tracks via public API, convert tracks, search
 - **Amazon Music**: Import playlists and tracks via headless browser, convert tracks, search

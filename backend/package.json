@@ -12,13 +12,13 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@krishna2206/deezer-api": "^1.0.0",
     "cheerio": "^1.0.0-rc.12",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.1.0",
     "express": "^5.1.0",
+    "fuzzball": "^2.2.2",
     "node-fetch": "^3.3.2",
-    "playwright-core": "^1.54.1",
-    "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "playwright-core": "^1.54.1"
   }
 }

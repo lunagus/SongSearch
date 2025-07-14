@@ -1,129 +1,133 @@
 import express from 'express';
-import { addTrackToSpotifyPlaylist, addTrackToYouTubePlaylist } from '../services/playlist-service.js';
-
+import fetch from 'node-fetch';
 const router = express.Router();
 
-// Apply manual fixes to a playlist
-router.post('/fix/playlist', async (req, res) => {
+// POST /fix-playlist-tracks
+router.post('/fix-playlist-tracks', async (req, res) => {
   const { session, playlistUrl, replacements } = req.body;
-
-  if (!session || !playlistUrl || !replacements) {
-    return res.status(400).json({ error: 'Missing required parameters' });
+  
+  // Debug logging
+  console.log('[DEBUG] fix-playlist-tracks received session:', session);
+  const userSessions = global.userSessions || new Map();
+  console.log('[DEBUG] All sessions in memory store:', Array.from(userSessions.keys()));
+  
+  if (!session || !playlistUrl || !replacements || !Array.isArray(replacements)) {
+    console.log('[DEBUG] Missing required fields:', { session: !!session, playlistUrl: !!playlistUrl, replacements: !!replacements });
+    return res.status(400).json({ error: 'Missing required fields' });
   }
+  
+  const user = userSessions.get(session);
+  console.log('[DEBUG] Retrieved user from memory store:', user ? 'Found' : 'Not found');
+  
+  if (!user?.accessToken) {
+    console.log('[DEBUG] Session validation failed - no user or accessToken');
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  
+  console.log('[DEBUG] Session validation successful, proceeding with playlist fixes');
+  console.log('[DEBUG] Received replacements:', JSON.stringify(replacements, null, 2));
+  
+  // Extract playlist ID from URL
+  const match = playlistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
+  if (!match) {
+    return res.status(400).json({ error: 'Invalid playlist URL' });
+  }
+  const playlistId = match[1];
+  console.log('[DEBUG] Extracted playlist ID:', playlistId);
+  
+  let successful = 0;
+  let failed = 0;
+  let errors = [];
+  
+  for (const rep of replacements) {
+    console.log('[DEBUG] Processing replacement:', JSON.stringify(rep, null, 2));
+    try {
+      if (rep.skip) {
+        console.log('[DEBUG] Skipping track as requested');
+        successful++;
+        continue;
+      }
 
-  try {
-    const userSessions = global.userSessions || new Map();
-    const user = userSessions.get(session);
-    
-    if (!user?.accessToken) {
-      return res.status(401).json({ error: 'Invalid session or missing access token' });
-    }
-
-    const results = [];
-    const errors = [];
-
-    // Process each replacement
-    for (const replacement of replacements) {
-      try {
-        const { originalTrack, newTrack, targetPlatform } = replacement;
+      // If not skip, add the new track directly to the playlist
+      if (rep.newTrack && rep.newTrack.id) {
+        console.log('[DEBUG] Adding new track directly to playlist:', rep.newTrack.title, 'by', rep.newTrack.artist);
+        const addRes = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${user.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uris: [`spotify:track:${rep.newTrack.id}`] })
+        });
         
-        let result;
-        if (targetPlatform === 'spotify') {
-          result = await addTrackToSpotifyPlaylist(
-            user.accessToken,
-            playlistUrl,
-            newTrack.id,
-            originalTrack.title,
-            originalTrack.artist
-          );
-        } else if (targetPlatform === 'youtube') {
-          result = await addTrackToYouTubePlaylist(
-            user.accessToken,
-            playlistUrl,
-            newTrack.id,
-            originalTrack.title,
-            originalTrack.artist
-          );
-        } else {
-          throw new Error(`Unsupported target platform: ${targetPlatform}`);
+        if (!addRes.ok) {
+          console.log('[DEBUG] Failed to add new track:', addRes.status, await addRes.text());
+          failed++;
+          errors.push({ originalTrack: rep.originalTrack, error: `Failed to add new track: ${addRes.status}` });
+          continue;
         }
-
-        results.push({
-          originalTrack,
-          newTrack,
-          success: true,
-          result
-        });
-      } catch (error) {
-        console.error('Error applying replacement:', error);
-        errors.push({
-          originalTrack: replacement.originalTrack,
-          newTrack: replacement.newTrack,
-          error: error.message
-        });
+        
+        console.log('[DEBUG] Successfully added new track to playlist');
+        successful++;
+      } else {
+        console.log('[DEBUG] No new track to add (missing newTrack or id)');
+        failed++;
+        errors.push({ originalTrack: rep.originalTrack, error: 'No valid new track provided' });
       }
+    } catch (err) {
+      console.log('[DEBUG] Error processing replacement:', err.message);
+      failed++;
+      errors.push({ originalTrack: rep.originalTrack, error: err.message });
     }
-
-    res.json({
-      success: true,
-      results,
-      errors,
-      summary: {
-        total: replacements.length,
-        successful: results.length,
-        failed: errors.length
-      }
-    });
-  } catch (error) {
-    console.error('Playlist fix error:', error);
-    res.status(500).json({ error: 'Failed to apply playlist fixes' });
   }
+  
+  console.log('[DEBUG] Final summary:', { successful, failed, errors });
+  res.json({ summary: { successful, failed, errors } });
 });
 
-// Add a single track to a playlist
-router.post('/fix/add-track', async (req, res) => {
-  const { session, playlistUrl, track, targetPlatform } = req.body;
-
-  if (!session || !playlistUrl || !track || !targetPlatform) {
-    return res.status(400).json({ error: 'Missing required parameters' });
+// Add Spotify search endpoint for manual fixes
+router.get('/search/spotify', async (req, res) => {
+  const { query, limit = 5, session } = req.query;
+  
+  // Debug logging
+  console.log('[DEBUG] search/spotify received session:', session);
+  const userSessions = global.userSessions || new Map();
+  console.log('[DEBUG] All sessions in memory store:', Array.from(userSessions.keys()));
+  
+  if (!query || !session) {
+    console.log('[DEBUG] Missing query or session:', { query: !!query, session: !!session });
+    return res.status(400).json({ error: 'Missing query or session' });
   }
-
+  
+  const user = userSessions.get(session);
+  console.log('[DEBUG] Retrieved user from memory store:', user ? 'Found' : 'Not found');
+  
+  if (!user?.accessToken) {
+    console.log('[DEBUG] Session validation failed - no user or accessToken');
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  
+  console.log('[DEBUG] Session validation successful, proceeding with search');
+  
   try {
-    const userSessions = global.userSessions || new Map();
-    const user = userSessions.get(session);
-    
-    if (!user?.accessToken) {
-      return res.status(401).json({ error: 'Invalid session or missing access token' });
-    }
-
-    let result;
-    if (targetPlatform === 'spotify') {
-      result = await addTrackToSpotifyPlaylist(
-        user.accessToken,
-        playlistUrl,
-        track.id,
-        track.title,
-        track.artist
-      );
-    } else if (targetPlatform === 'youtube') {
-      result = await addTrackToYouTubePlaylist(
-        user.accessToken,
-        playlistUrl,
-        track.id,
-        track.title,
-        track.artist
-      );
-    } else {
-      return res.status(400).json({ error: `Unsupported target platform: ${targetPlatform}` });
-    }
-
-    res.json({
-      success: true,
-      result
+    const searchUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`;
+    const response = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${user.accessToken}` }
     });
-  } catch (error) {
-    console.error('Add track error:', error);
-    res.status(500).json({ error: 'Failed to add track to playlist' });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Spotify API error' });
+    }
+    const data = await response.json();
+    const results = (data.tracks?.items || []).map(track => ({
+      id: track.id,
+      title: track.name,
+      artist: track.artists[0]?.name || '',
+      album: track.album?.name || '',
+      duration: track.duration_ms,
+      url: track.external_urls?.spotify,
+      platform: 'spotify',
+      thumbnail: track.album?.images?.[0]?.url || null
+    }));
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 

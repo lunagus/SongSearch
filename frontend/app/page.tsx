@@ -34,7 +34,7 @@ import { MusicWaveAnimation } from "@/components/music-wave-animation"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { trackEvent, trackConversion, trackError } from "@/lib/analytics"
 import type { JSX } from "react/jsx-runtime"
-import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertSpotifyToDeezer, convertYouTubeToSpotify, convertYouTubeToDeezer, listenToProgress, getConversionResults, convertTrack, convertWebPlaylist } from "@/lib/api";
+import { getOAuthUrl, convertDeezerToSpotify, convertSpotifyToYouTube, convertSpotifyToDeezer, convertYouTubeToSpotify, convertYouTubeToDeezer, listenToProgress, getConversionResults, convertTrack, convertWebPlaylist, validateDeezerARL } from "@/lib/api";
 import {
   SpotifyIcon,
   YouTubeMusicIcon,
@@ -116,6 +116,7 @@ export default function SongSeekApp() {
   const { toast } = useToast()
   const { theme, setTheme } = useTheme()
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const progressClosedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true)
@@ -132,13 +133,15 @@ export default function SongSeekApp() {
       if (res.ok) {
         return true;
       } else {
-        // Session invalid, remove from localStorage
+        // Session invalid, remove from localStorage (this is normal behavior)
         localStorage.removeItem(`${platform}_session`);
+        console.log(`[INFO] Session validation failed for ${platform} - session removed from localStorage`);
         return false;
       }
     } catch (err) {
-      // On error, assume session is invalid
+      // On error, assume session is invalid (this is normal behavior)
       localStorage.removeItem(`${platform}_session`);
+      console.log(`[INFO] Session validation error for ${platform} - session removed from localStorage`);
       return false;
     }
   }
@@ -515,8 +518,8 @@ export default function SongSeekApp() {
         type: "error",
       },
       deezer_unavailable: {
-        message: "Playlist creation is not available for Deezer at this time.",
-        suggestion: "Track conversion to Deezer still works!",
+        message: "Deezer playlist creation requires authentication.",
+        suggestion: "Please login to Deezer using your ARL token to create playlists.",
         type: "warning",
       },
     }
@@ -757,11 +760,7 @@ export default function SongSeekApp() {
       return;
     }
     const targetPlatformKey = playlistTarget === "ytmusic" ? "youtube" : (playlistTarget as keyof LoginStatus);
-    // Skip authentication check for Deezer since playlist creation is not available
-    if (playlistTarget === "deezer") {
-      showDetailedFeedback("deezer_unavailable", playlistTarget, false);
-      return;
-    }
+    // Check authentication for all platforms including Deezer
     if (!loginStatus[targetPlatformKey]) {
       showDetailedFeedback("login_expired", playlistTarget, false);
       return;
@@ -879,27 +878,36 @@ export default function SongSeekApp() {
       }
       // Apple Music to Deezer conversion
       else if (sourcePlatform === "applemusic" && playlistTarget === "deezer") {
-        toast({
-          title: "Deezer Playlist Creation Temporarily Unavailable",
-          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        const deezerSession = localStorage.getItem("deezer_session");
+        if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
+        setCurrentSession(deezerSession);
+        eventSource = listenToProgress(deezerSession, (progress) => {
+          console.log("Progress:", progress);
         });
-        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+        conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
+        setCurrentSession(conversionResponse.session || deezerSession);
       }
       // Spotify to Deezer conversion
       else if (sourcePlatform === "spotify" && playlistTarget === "deezer") {
-        toast({
-          title: "Deezer Playlist Creation Temporarily Unavailable",
-          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        const deezerSession = localStorage.getItem("deezer_session");
+        if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
+        setCurrentSession(deezerSession);
+        eventSource = listenToProgress(deezerSession, (progress) => {
+          console.log("Progress:", progress);
         });
-        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+        conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
+        setCurrentSession(conversionResponse.session || deezerSession);
       }
       // YouTube to Deezer conversion
       else if (sourcePlatform === "ytmusic" && playlistTarget === "deezer") {
-        toast({
-          title: "Deezer Playlist Creation Temporarily Unavailable",
-          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        const deezerSession = localStorage.getItem("deezer_session");
+        if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
+        setCurrentSession(deezerSession);
+        eventSource = listenToProgress(deezerSession, (progress) => {
+          console.log("Progress:", progress);
         });
-        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+        conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
+        setCurrentSession(conversionResponse.session || deezerSession);
       }
       // Amazon Music to Spotify conversion
       else if (sourcePlatform === "amazonmusic" && playlistTarget === "spotify") {
@@ -926,11 +934,14 @@ export default function SongSeekApp() {
       }
       // Amazon Music to Deezer conversion
       else if (sourcePlatform === "amazonmusic" && playlistTarget === "deezer") {
-        toast({
-          title: "Deezer Playlist Creation Temporarily Unavailable",
-          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        const deezerSession = localStorage.getItem("deezer_session");
+        if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
+        setCurrentSession(deezerSession);
+        eventSource = listenToProgress(deezerSession, (progress) => {
+          console.log("Progress:", progress);
         });
-        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+        conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
+        setCurrentSession(conversionResponse.session || deezerSession);
       }
       // Tidal to Spotify conversion
       else if (sourcePlatform === "tidal" && playlistTarget === "spotify") {
@@ -956,11 +967,14 @@ export default function SongSeekApp() {
       }
       // Tidal to Deezer conversion
       else if (sourcePlatform === "tidal" && playlistTarget === "deezer") {
-        toast({
-          title: "Deezer Playlist Creation Temporarily Unavailable",
-          description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+        const deezerSession = localStorage.getItem("deezer_session");
+        if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
+        setCurrentSession(deezerSession);
+        eventSource = listenToProgress(deezerSession, (progress) => {
+          console.log("Progress:", progress);
         });
-        throw new Error("Deezer playlist creation is temporarily unavailable due to developer portal closure");
+        conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
+        setCurrentSession(conversionResponse.session || deezerSession);
       }
       else {
         throw new Error(`Conversion from ${sourcePlatform} to ${playlistTarget} is not yet implemented.`);
@@ -986,8 +1000,26 @@ export default function SongSeekApp() {
         });
 
         // Fetch conversion results
-        const results = await getConversionResults(conversionResponse.session);
+        // If the backend returns a new session, update currentSession
+        if (conversionResponse.session && conversionResponse.session !== currentSession) {
+          setCurrentSession(conversionResponse.session);
+        }
+        // Robust session selection for results
+        let sessionToUse = conversionResponse.session || currentSession;
+        if (!sessionToUse && playlistTarget === "deezer") {
+          sessionToUse = localStorage.getItem("deezer_session") || undefined;
+        }
+        if (!sessionToUse) {
+          setFeedback("Session expired or missing. Please log in to Deezer again.");
+          setFeedbackType("error");
+          setIsConverting(false);
+          setShowProgress(false);
+          return;
+        }
+        setCurrentSession(sessionToUse);
+        const results = await getConversionResults(sessionToUse);
         setConversionResults(results);
+        console.log('[DEBUG] setConversionResults for session', sessionToUse, results);
         setShowResults(true);
 
         // Show success message
@@ -1009,6 +1041,20 @@ export default function SongSeekApp() {
       timestamp: new Date().toISOString(),
       });
 
+      // Handle authentication requirement errors
+      if (err.requiresAuth && err.platform) {
+        const platformName = err.platform === 'spotify' ? 'Spotify' : err.platform;
+        setFeedback(`${platformName} login required: ${err.message}`);
+        setFeedbackType("error");
+        
+        toast({
+          variant: "destructive",
+          title: `${platformName} Login Required`,
+          description: err.message || `Please log in to ${platformName} to access this playlist`,
+        });
+        return;
+      }
+
       // Check if this is a resolver error with debug information
       if (err.message && err.message.includes('No tracks found')) {
         setFeedback(`Amazon Music playlist error: ${err.message}. This usually means the playlist is private, empty, or Amazon Music has changed their page structure. Try using a public playlist with tracks.`);
@@ -1028,10 +1074,55 @@ export default function SongSeekApp() {
   const handleLogin = (platform: string) => {
     // Check if Deezer is selected and show appropriate message
     if (platform === "deezer") {
+      console.log('[DEBUG] Deezer login initiated');
+      
+      // For Deezer, we'll use ARL token instead of OAuth
+      const arl = prompt("Please enter your Deezer ARL token:\n\nTo get your ARL token:\n1. Go to https://www.deezer.com and log in\n2. Open Developer Tools (F12)\n3. Go to Application → Cookies → https://www.deezer.com\n4. Copy the value of the 'arl' cookie\n\nNote: Use a test account for safety");
+      
+      console.log('[DEBUG] ARL input received:', arl ? 'Yes' : 'No');
+      console.log('[DEBUG] ARL length:', arl?.length);
+      console.log('[DEBUG] ARL preview:', arl?.substring(0, 10) + '...');
+      
+      if (arl && arl.trim()) {
+        console.log('[DEBUG] Starting ARL validation...');
+        
+        // Validate the ARL token
+        validateDeezerARL(arl.trim())
+          .then((result: any) => {
+            console.log('[DEBUG] ARL validation successful:', result);
+            
+            if (result.success) {
+              console.log('[DEBUG] Storing Deezer session:', result.session);
+              localStorage.setItem("deezer_session", result.session);
+              setLoginStatus(prev => ({ ...prev, deezer: true }));
       toast({
-        title: "Deezer Login Temporarily Unavailable",
-        description: "Deezer's developer portal is currently closed for new applications. Track conversion to Deezer still works!",
+                title: "Deezer Connected! 🎉",
+                description: `Welcome, ${result.user.USERNAME || 'User'}!`,
+              });
+            } else {
+              console.error('[DEBUG] ARL validation returned success: false:', result);
+              toast({
+                variant: "destructive",
+                title: "Deezer Connection Failed",
+                description: result.error || "Invalid ARL token",
+              });
+            }
+          })
+          .catch((error: any) => {
+            console.error('[DEBUG] ARL validation failed with error:', error);
+            console.error('[DEBUG] Error name:', error.name);
+            console.error('[DEBUG] Error message:', error.message);
+            console.error('[DEBUG] Error stack:', error.stack);
+            
+            toast({
+              variant: "destructive",
+              title: "Deezer Connection Failed",
+              description: error.message || "Invalid ARL token",
       });
+          });
+      } else {
+        console.log('[DEBUG] No ARL provided or empty ARL');
+      }
       return;
     }
     
@@ -1245,19 +1336,11 @@ export default function SongSeekApp() {
                         <SelectItem 
                           key={platform.id} 
                           value={platform.id} 
-                          className={`text-base sm:text-lg py-3 ${
-                            platform.id === "deezer" ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                          disabled={platform.id === "deezer"}
+                          className="text-base sm:text-lg py-3"
                         >
                           <div className="flex items-center gap-3">
                             {getPlatformIcon(platform.id)}
                             <span>{platform.name}</span>
-                            {platform.id === "deezer" && (
-                              <span className="text-xs text-orange-600 dark:text-orange-400 ml-auto">
-                                (Track only)
-                              </span>
-                            )}
                           </div>
                         </SelectItem>
                       ))}
@@ -1279,11 +1362,22 @@ export default function SongSeekApp() {
                     if (selectedPlatform.id === "deezer") {
                     return (
                       <Button
-                          disabled
-                          className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl bg-gray-400 text-white opacity-50 cursor-not-allowed"
+                          onClick={() => handleLogin(getLoginPlatformKey(selectedPlatform.id))}
+                          disabled={isLoggedIn}
+                          className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
+                            isLoggedIn ? "opacity-90" : ""
+                          }`}
                         >
-                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                          Deezer Login Temporarily Unavailable
+                          {isLoggedIn ? (
+                            <>
+                              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                              Connected to {selectedPlatform.name}
+                            </>
+                          ) : (
+                            <>
+                              <span>Connect to {selectedPlatform.name} (ARL)</span>
+                            </>
+                          )}
                         </Button>
                       )
                     }
@@ -1516,6 +1610,7 @@ export default function SongSeekApp() {
               onClose={() => {
                 setShowProgress(false);
                 setCurrentSession(undefined);
+                progressClosedRef.current = false; // Reset for next conversion
               }} 
               session={currentSession
                 || localStorage.getItem("spotify_session") || undefined
@@ -1523,8 +1618,10 @@ export default function SongSeekApp() {
                 || localStorage.getItem("deezer_session") || undefined
                 || localStorage.getItem("apple_session") || undefined}
               onProgressUpdate={(progress) => {
+                if (progressClosedRef.current) return;
                 // If progress contains an error, stop polling and show error
                 if (progress && progress.error) {
+                  progressClosedRef.current = true;
                   setShowProgress(false);
                   setCurrentSession(undefined);
                   setFeedback(progress.error);
@@ -1533,6 +1630,7 @@ export default function SongSeekApp() {
                 }
                 // If progress is empty or indicates done, stop polling
                 if (!progress || Object.keys(progress).length === 0 || progress.stage === "Done") {
+                  progressClosedRef.current = true;
                   setShowProgress(false);
                   setCurrentSession(undefined);
                   return;
@@ -1542,6 +1640,7 @@ export default function SongSeekApp() {
               onViewResults={() => {
                 setShowProgress(false);
                 setCurrentSession(undefined);
+                progressClosedRef.current = false; // Reset for next conversion
                 // The results should already be set by handlePlaylistConvert
                 if (conversionResults) {
                   setShowResults(true);
