@@ -1756,7 +1756,7 @@ export default function SongSeekApp() {
         {/* Copyright */}
         <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
           <p className="text-xs text-gray-500 dark:text-gray-500">
-            © 2024 SongSeek. Made with ❤️ for music lovers everywhere.
+            © 2025 💜 SongSeek 
           </p>
         </div>
       </footer>
