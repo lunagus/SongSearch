@@ -1,5 +1,12 @@
-### [SongSeek](https://songseek.vercel.app/)
-
+# [SongSeek](https://songseek.vercel.app/)
+[![Build Status](https://img.shields.io/github/deployments/lunagus/SongSeek/production?label=build&color=brightgreen)](https://github.com/lunagus/SongSeek/deployments)
+[![Vercel](https://img.shields.io/badge/deployed%20on-Vercel-black?logo=vercel)](https://songseek.vercel.app/)
+![Express](https://img.shields.io/badge/Express-5.1.0-black?logo=express)
+![Node.js](https://img.shields.io/badge/Node.js-22.14.0-green?logo=node.js)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.1-blue?logo=typescript)
+![React](https://img.shields.io/badge/React-19.1.0-blue?logo=react)
+![Next.js](https://img.shields.io/badge/Next.js-15.4.1-black?logo=next.js)
 ---
 
 ## 💭 WHY?
@@ -7,6 +14,18 @@
 I got tired of trying to find a suitable tool that would let me convert large Deezer playlists to Spotify or other services automatically. Most were paywalled, throttled, or feature-limited. So I built **SongSeek** to offer a fast, free, and accurate alternative. It features a rich UX and real-time tracking to convert music libraries between platforms like Spotify, YouTube Music, Deezer, and Apple Music with high accuracy.
 
 **SongSeek** fetches metadata from source links and redirects users to the equivalent track or playlist on the target platform.
+
+---
+
+## 🚀 Quick Start
+
+1. Visit [SongSeek](https://songseek.vercel.app/) and paste your playlist or track link.
+2. Choose your target platform.
+3. Login with OAuth if prompted.
+4. Watch your playlist convert in real-time!
+5. Use manual fixes if any tracks don't match perfectly.
+
+Want to run it locally or contribute? See [Contributing](#-contributing) below.
 
 ---
 
@@ -120,10 +139,15 @@ I got tired of trying to find a suitable tool that would let me convert large De
 
 ## 🤝 Contributing
 
+Contributors of all kinds are welcome! To get started:
+
 1. Fork the repo
-2. Create a feature branch
-3. Commit & push your changes
-4. Open a Pull Request
+2. Create a new branch (`git checkout -b feature-name`)
+3. Commit your changes (`git commit -m "Add feature"`)
+4. Push to your branch (`git push origin feature-name`)
+5. Open a Pull Request and describe your changes
+
+Need help or ideas? Open an issue or reach out!
 
 ---
 
