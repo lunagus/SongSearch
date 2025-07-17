@@ -16,8 +16,9 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
-  const [state, handleSubmit] = useForm("xldleqja")
+  const [state, handleSubmit, reset] = useForm("xldleqja")
   const { toast } = useToast()
+  const [formKey, setFormKey] = useState(0)
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -67,6 +68,15 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     localStorage.setItem("feedback_last_submission", Date.now().toString())
   }
 
+  const handleClose = () => {
+    if (state.succeeded) {
+      // Reset the form state for next time
+      if (typeof reset === 'function') reset()
+      setFormKey(k => k + 1)
+    }
+    onClose()
+  }
+
   if (state.succeeded) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -77,7 +87,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             <p className="text-muted-foreground mb-4">
               Your feedback has been submitted successfully. We'll get back to you soon!
             </p>
-            <Button onClick={onClose} className="w-full">
+            <Button onClick={handleClose} className="w-full">
               Close
             </Button>
           </CardContent>
@@ -110,7 +120,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleFormSubmit} className="space-y-4">
+          <form onSubmit={handleFormSubmit} className="space-y-4" key={formKey}>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input

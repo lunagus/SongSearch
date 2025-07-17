@@ -324,60 +324,58 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="w-full max-w-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         {/* Header */}
-        <div className="p-6 pb-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <DialogHeader className="flex-1">
-              <DialogTitle className="text-left">{steps[currentStep].title}</DialogTitle>
-              <DialogDescription className="text-left">{steps[currentStep].description}</DialogDescription>
+        <div className="p-4 sm:p-6 pb-4 border-b">
+          <div className="flex items-center justify-between mb-4 min-w-0">
+            <DialogHeader className="flex-1 min-w-0">
+              <DialogTitle className="text-left truncate">{steps[currentStep].title}</DialogTitle>
+              <DialogDescription className="text-left truncate">{steps[currentStep].description}</DialogDescription>
             </DialogHeader>
           </div>
 
           {/* Progress */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-sm min-w-0">
               <span className="text-muted-foreground">
                 Step {currentStep + 1} of {steps.length}
               </span>
               <span className="text-muted-foreground">{Math.round(progressPercentage)}%</span>
             </div>
-            <Progress value={progressPercentage} className="h-2" />
+            <Progress value={progressPercentage} className="h-2 w-full" />
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 flex-1 overflow-y-auto">
-          <div
-            className={`transition-all duration-150 ${isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
-          >
+        <div className={`transition-all duration-150 ${isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"} w-full px-2 sm:px-6 py-4 sm:py-8 min-w-0`}> 
+          <div className="w-full max-w-xs sm:max-w-md mx-auto min-w-0">
             {steps[currentStep].content}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 border-t bg-gray-50 dark:bg-gray-800/50">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={prevStep} disabled={currentStep === 0} className="flex items-center gap-2">
+        <div className="p-4 sm:p-6 pt-4 border-t bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 min-w-0">
+            <Button variant="ghost" onClick={prevStep} disabled={currentStep === 0} className="flex items-center gap-2 w-full sm:w-auto">
               <ChevronLeft className="h-4 w-4" />
               Previous
             </Button>
 
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+              <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground w-full sm:w-auto">
                 Skip Tutorial
               </Button>
 
               {currentStep === steps.length - 1 ? (
                 <Button
                   onClick={handleComplete}
-                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                  className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 w-full sm:w-auto"
                 >
                   Get Started
                   <Sparkles className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
-                <Button onClick={nextStep} className="flex items-center gap-2">
+                <Button onClick={nextStep} className="flex items-center gap-2 w-full sm:w-auto">
                   Next
                   <ChevronRight className="h-4 w-4" />
                 </Button>

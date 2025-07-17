@@ -702,7 +702,7 @@ app.get('/convert-youtube-playlist', async (req, res) => {
     });
 
     // Step 1: Create playlist and add tracks
-    const url = await convertYouTubeToSpotifyPlaylist(
+    const result = await convertYouTubeToSpotifyPlaylist(
       token,
       name,
       tracks,
@@ -733,25 +733,14 @@ app.get('/convert-youtube-playlist', async (req, res) => {
       tracks: trackProgress
     });
     
-    // Store conversion results
-    const matched = trackProgress.filter(track => track.status === 'success').map(track => ({
-      title: track.title,
-      artist: track.artist,
-      status: 'success'
-    }));
-    
-    const skipped = trackProgress.filter(track => track.status === 'failed').map(track => ({
-      title: track.title,
-      artist: track.artist,
-      reason: 'Not found on target platform'
-    }));
-    
+    // Store conversion results (now using matched, mismatched, skipped from result)
+    const { matched = [], mismatched = [], skipped = [], playlistUrl = result.playlistUrl, tracks: resultTracks = [] } = result;
     const conversionResults = {
       matched,
+      mismatched,
       skipped,
-      mismatched: [], // No mismatched tracks for this conversion type
-      playlistUrl: url,
-      tracks: trackProgress
+      playlistUrl,
+      tracks: resultTracks.length > 0 ? resultTracks : trackProgress
     };
     
     conversionResultsMap.set(session, conversionResults);

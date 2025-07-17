@@ -155,11 +155,11 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-hidden p-6 sm:p-8">
+      <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-8">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Music className="h-5 w-5" />
-            Converting Playlist
+          <DialogTitle className="flex items-center gap-2 min-w-0">
+            <Music className="h-5 w-5 shrink-0" />
+            <span className="truncate">Converting Playlist</span>
           </DialogTitle>
           <DialogDescription>
             {error ? (
@@ -173,11 +173,11 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
         <div className="space-y-6">
           {/* Overall Progress */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium">{currentStage}</span>
+            <div className="flex items-center justify-between text-sm min-w-0">
+              <span className="font-medium truncate">{currentStage}</span>
               <span className="text-muted-foreground">{Math.round(progress)}%</span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-2 w-full" />
           </div>
 
           {/* Track Details */}
@@ -191,11 +191,11 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 mt-4 max-h-80 sm:max-h-96 overflow-y-auto">
+              <CollapsibleContent className="space-y-2 mt-4 max-h-80 sm:max-h-96 overflow-y-auto overflow-x-auto">
                 {tracks.map((track, index) => (
                   <div
                     key={index}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors min-w-0 ${
                       index === currentTrackIndex && track.status === "processing"
                         ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
                         : "bg-gray-50 dark:bg-gray-800"
@@ -214,18 +214,18 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
           )}
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-2 mt-6">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6 w-full">
             {progress === 100 || currentStage === "Done" ? (
-              <Button onClick={onViewResults || onClose} className="bg-green-600 hover:bg-green-700">
+              <Button onClick={onViewResults || onClose} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                 <CheckCircle className="h-4 w-4 mr-2" />
                 View Results
               </Button>
             ) : error ? (
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Close
               </Button>
             ) : (
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Run in Background
               </Button>
             )}
