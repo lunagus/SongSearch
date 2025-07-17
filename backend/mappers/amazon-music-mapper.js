@@ -1,8 +1,16 @@
 import { getBrowserlessContext } from '../utils/browserlessContext.js';
+import { scoreTrackMatch } from '../utils/fuzzyMatcher.js';
 
 export default async function amazonMusicMapper({ title, artist, duration }) {
   try {
     console.log(`[AmazonMusicMapper] Searching for: ${title} - ${artist}`);
+    
+    // Check if Browserless is available
+    if (!process.env.BROWSERLESS_API_KEY) {
+      console.warn('[AmazonMusicMapper] BROWSERLESS_API_KEY not found, Amazon Music mapping unavailable');
+      console.warn('[AmazonMusicMapper] To enable Amazon Music mapping, set BROWSERLESS_API_KEY in your environment');
+      return null;
+    }
     
     // Use headless browser to search Amazon Music
     const context = await getBrowserlessContext();
@@ -21,13 +29,13 @@ export default async function amazonMusicMapper({ title, artist, duration }) {
       });
       
       // Wait for search results to load
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(5000);
       
-      // Extract track candidates using the same approach as playlist scraper
+      // Extract track candidates using improved selectors
       const trackCandidates = await page.evaluate(() => {
         const candidates = [];
         
-        // Look for music-image-row elements (Amazon Music's track component)
+        // Method 1: Look for music-image-row elements (Amazon Music's track component)
         const rows = document.querySelectorAll('music-image-row');
         console.log(`[AmazonMusicMapper] Found ${rows.length} music-image-row elements`);
         
@@ -49,11 +57,11 @@ export default async function amazonMusicMapper({ title, artist, duration }) {
           }
         });
         
-        // Fallback: Look for other track link patterns
-        const links = document.querySelectorAll('a[href*="/albums/"], a[href*="/tracks/"], a[href*="trackAsin="]');
-        console.log(`[AmazonMusicMapper] Found ${links.length} track links`);
+        // Method 2: Look for track links with specific patterns
+        const trackLinks = document.querySelectorAll('a[href*="/tracks/"], a[href*="trackAsin="]');
+        console.log(`[AmazonMusicMapper] Found ${trackLinks.length} track links`);
         
-        links.forEach((link) => {
+        trackLinks.forEach((link) => {
           const href = link.getAttribute('href');
           if (href) {
             const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
@@ -81,37 +89,124 @@ export default async function amazonMusicMapper({ title, artist, duration }) {
           }
         });
         
+        // Method 3: Look for any music-related links
+        const musicLinks = document.querySelectorAll('a[href*="/albums/"], a[href*="/tracks/"]');
+        console.log(`[AmazonMusicMapper] Found ${musicLinks.length} music links`);
+        
+        musicLinks.forEach((link) => {
+          const href = link.getAttribute('href');
+          if (href) {
+            const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
+            
+            let trackTitle = link.textContent.trim();
+            if (!trackTitle) {
+              trackTitle = link.getAttribute('title') || link.getAttribute('aria-label') || '';
+            }
+            
+            // Skip if this looks like an album link rather than a track
+            if (trackTitle && !trackTitle.toLowerCase().includes('album') && trackTitle.length > 0) {
+              candidates.push({
+                title: trackTitle,
+                artist: '', // Will be filled by fuzzy matching
+                url: fullUrl
+              });
+            }
+          }
+        });
+        
+        // Method 4: Look for search result containers
+        const searchResults = document.querySelectorAll('[data-testid*="search-result"], [data-testid*="track"], .search-result, .track-item');
+        console.log(`[AmazonMusicMapper] Found ${searchResults.length} search result containers`);
+        
+        searchResults.forEach((result) => {
+          // Look for title and artist within the result container
+          const titleElement = result.querySelector('[data-testid*="title"], .title, .track-title, h3, h4');
+          const artistElement = result.querySelector('[data-testid*="artist"], .artist, .artist-name, .performer');
+          
+          if (titleElement) {
+            const trackTitle = titleElement.textContent.trim();
+            const trackArtist = artistElement ? artistElement.textContent.trim() : '';
+            
+            // Look for a link within this result
+            const linkElement = result.querySelector('a[href*="/tracks/"], a[href*="trackAsin="], a[href*="/albums/"]');
+            if (linkElement) {
+              const href = linkElement.getAttribute('href');
+              if (href) {
+                const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
+                
+                candidates.push({
+                  title: trackTitle,
+                  artist: trackArtist,
+                  url: fullUrl
+                });
+              }
+            }
+          }
+        });
+        
+        // Method 5: Look for any text that might be track titles
+        const allTextElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div');
+        console.log(`[AmazonMusicMapper] Found ${allTextElements.length} text elements`);
+        
+        allTextElements.forEach((element) => {
+          const text = element.textContent.trim();
+          if (text && text.length > 3 && text.length < 100) {
+            // Look for patterns that suggest this might be a track title
+            const parent = element.closest('a[href*="/tracks/"], a[href*="trackAsin="]');
+            if (parent) {
+              const href = parent.getAttribute('href');
+              if (href) {
+                const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
+                
+                // Try to extract artist from nearby elements
+                let trackArtist = '';
+                const artistElement = element.closest('[data-testid*="track"], [data-testid*="song"]')?.querySelector('[data-testid*="artist"], .artist, .artist-name');
+                if (artistElement) {
+                  trackArtist = artistElement.textContent.trim();
+                }
+                
+                candidates.push({
+                  title: text,
+                  artist: trackArtist,
+                  url: fullUrl
+                });
+              }
+            }
+          }
+        });
+        
         return candidates;
       });
       
       console.log(`[AmazonMusicMapper] Found ${trackCandidates.length} potential track candidates`);
       
       if (trackCandidates.length > 0) {
-        // Find the first track that matches title, artist, and duration
-        for (const candidate of trackCandidates) {
-          const trackTitle = candidate.title.toLowerCase();
-          const trackArtist = candidate.artist.toLowerCase();
-          const searchTitle = title.toLowerCase();
-          const searchArtist = artist.toLowerCase();
-          
-          // Check if title and artist match
-          const titleMatch = trackTitle.includes(searchTitle) || searchTitle.includes(trackTitle);
-          const artistMatch = trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist);
-          
-          // Duration check is skipped for Amazon Music since we can't easily get duration from scraping
-          const durationMatch = true;
-          
-          console.log(`[AmazonMusicMapper] Checking: "${candidate.title}" by ${candidate.artist}`);
-          console.log(`[AmazonMusicMapper] Title match: ${titleMatch}, Artist match: ${artistMatch}, Duration match: ${durationMatch}`);
-          
-          if (titleMatch && artistMatch && durationMatch) {
-            console.log(`[AmazonMusicMapper] Found match: "${candidate.title}" by ${candidate.artist}`);
-            return candidate.url;
-          }
+        // Convert candidates to the format expected by fuzzy matcher
+        const scoredCandidates = trackCandidates.map(candidate => {
+          const scores = scoreTrackMatch({ title, artist, duration }, candidate);
+          return { ...candidate, ...scores };
+        });
+
+        // Sort by score (highest first)
+        scoredCandidates.sort((a, b) => b.score - a.score);
+        const best = scoredCandidates[0];
+
+        // Only consider plausible candidates (score > 0.2)
+        const plausibleCandidates = scoredCandidates.filter(s => s.score > 0.2);
+
+        if (best.matchType === 'perfect') {
+          console.log(`[AmazonMusicMapper] Perfect match: "${best.title}" by ${best.artist} (score: ${best.score.toFixed(2)})`);
+          return best.url;
+        } else if (best.matchType === 'partial') {
+          console.log(`[AmazonMusicMapper] Partial match: "${best.title}" by ${best.artist} (score: ${best.score.toFixed(2)})`);
+          return best.url;
+        } else {
+          console.log(`[AmazonMusicMapper] No plausible match found (best score: ${best.score.toFixed(2)})`);
+          return null;
         }
       }
       
-      console.log(`[AmazonMusicMapper] No matching track found`);
+      console.log(`[AmazonMusicMapper] No track candidates found`);
       return null;
       
     } finally {
@@ -120,6 +215,13 @@ export default async function amazonMusicMapper({ title, artist, duration }) {
     
   } catch (error) {
     console.error('[AmazonMusicMapper] Error:', error);
+    
+    // If it's a Browserless connection error, provide helpful message
+    if (error.message.includes('BROWSERLESS_API_KEY')) {
+      console.error('[AmazonMusicMapper] Browserless API key not configured. Amazon Music mapping is unavailable.');
+      console.error('[AmazonMusicMapper] To enable Amazon Music mapping, add BROWSERLESS_API_KEY to your environment variables.');
+    }
+    
     return null;
   }
-  }
+}

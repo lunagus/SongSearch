@@ -481,4 +481,121 @@ export async function resolveAmazonMusicTrack(url) {
       url
     };
   });
+}
+
+export async function resolveAmazonMusicSearch(url) {
+  return await withRetries(async () => {
+    const context = await getBrowserlessContext();
+    const page = await context.newPage();
+    const TIMEOUT = 20000;
+    
+    console.log('[AmazonMusicSearch] Navigating to search page:', url);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
+    
+    // Wait for search results to load
+    await page.waitForTimeout(5000);
+    
+    // Try multiple selectors for search results
+    const searchResults = await page.evaluate(() => {
+      const results = [];
+      
+      // Method 1: Look for music-image-row elements
+      const rows = document.querySelectorAll('music-image-row');
+      console.log(`[AmazonMusicSearch] Found ${rows.length} music-image-row elements`);
+      
+      rows.forEach((row) => {
+        const trackTitle = row.getAttribute('primary-text') || '';
+        const trackArtist = row.getAttribute('secondary-text-1') || '';
+        const trackUrl = row.getAttribute('primary-href');
+        
+        if (trackTitle && trackUrl) {
+          const fullUrl = trackUrl.startsWith('http') 
+            ? trackUrl 
+            : `https://music.amazon.com${trackUrl}`;
+          
+          results.push({
+            title: trackTitle,
+            artist: trackArtist,
+            url: fullUrl
+          });
+        }
+      });
+      
+      // Method 2: Look for track links
+      const trackLinks = document.querySelectorAll('a[href*="/tracks/"], a[href*="trackAsin="]');
+      console.log(`[AmazonMusicSearch] Found ${trackLinks.length} track links`);
+      
+      trackLinks.forEach((link) => {
+        const href = link.getAttribute('href');
+        if (href) {
+          const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
+          
+          let trackTitle = link.textContent.trim();
+          if (!trackTitle) {
+            trackTitle = link.getAttribute('title') || link.getAttribute('aria-label') || '';
+          }
+          
+          if (trackTitle && trackTitle.length > 0) {
+            results.push({
+              title: trackTitle,
+              artist: '', // Will be filled by fuzzy matching
+              url: fullUrl
+            });
+          }
+        }
+      });
+      
+      // Method 3: Look for search result containers
+      const searchContainers = document.querySelectorAll('[data-testid*="search-result"], [data-testid*="track"], .search-result, .track-item');
+      console.log(`[AmazonMusicSearch] Found ${searchContainers.length} search result containers`);
+      
+      searchContainers.forEach((container) => {
+        const titleElement = container.querySelector('[data-testid*="title"], .title, .track-title, h3, h4');
+        const artistElement = container.querySelector('[data-testid*="artist"], .artist, .artist-name, .performer');
+        
+        if (titleElement) {
+          const trackTitle = titleElement.textContent.trim();
+          const trackArtist = artistElement ? artistElement.textContent.trim() : '';
+          
+          const linkElement = container.querySelector('a[href*="/tracks/"], a[href*="trackAsin="], a[href*="/albums/"]');
+          if (linkElement) {
+            const href = linkElement.getAttribute('href');
+            if (href) {
+              const fullUrl = href.startsWith('http') ? href : `https://music.amazon.com${href}`;
+              
+              results.push({
+                title: trackTitle,
+                artist: trackArtist,
+                url: fullUrl
+              });
+            }
+          }
+        }
+      });
+      
+      return results;
+    });
+    
+    await page.close();
+    await context.close();
+    
+    console.log(`[AmazonMusicSearch] Found ${searchResults.length} search results`);
+    
+    if (searchResults.length === 0) {
+      throw new Error('No search results found on Amazon Music search page');
+    }
+    
+    // Return the first result as the best match
+    const bestResult = searchResults[0];
+    return {
+      title: bestResult.title,
+      artist: bestResult.artist,
+      album: '', // Not available from search results
+      duration: null, // Not available from search results
+      releaseDate: null, // Not available from search results
+      image: null, // Not available from search results
+      url: bestResult.url,
+      searchResults: searchResults // Include all results for potential use
+    };
+  });
 } 

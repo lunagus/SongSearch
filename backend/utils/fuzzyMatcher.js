@@ -41,12 +41,60 @@ function hasYear(str) {
   return /\b(19|20)\d{2}\b/.test(str);
 }
 
+function hasDeluxe(str) {
+  return /deluxe|greatest hits|expanded|edition|bonus|explicit|clean|single|ep|album|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo/i.test(str);
+}
+
+// Enhanced version detection for combined patterns
+function hasRemasterWithYear(str) {
+  return /remaster(ed)?\s+\d{4}|\d{4}\s+remaster(ed)?/i.test(str);
+}
+
+function hasLiveWithYear(str) {
+  return /live\s+\d{4}|\d{4}\s+live|concert\s+\d{4}|\d{4}\s+concert/i.test(str);
+}
+
+function hasVersionWithYear(str) {
+  return /(version|mix|edit|radio|extended|short|instrumental|acoustic|unplugged)\s+\d{4}|\d{4}\s+(version|mix|edit|radio|extended|short|instrumental|acoustic|unplugged)/i.test(str);
+}
+
+function hasDeluxeWithYear(str) {
+  return /(deluxe|greatest hits|expanded|edition|bonus|explicit|clean|single|ep|album|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo)\s+\d{4}|\d{4}\s+(deluxe|greatest hits|expanded|edition|bonus|explicit|clean|single|ep|album|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo)/i.test(str);
+}
+
+// Enhanced version detection for combined patterns (with and without years)
+function hasRemasterCombined(str) {
+  return /remaster(ed)?(?:\s+\d{4})?|\d{4}\s+remaster(ed)?/i.test(str);
+}
+
+function hasLiveCombined(str) {
+  return /live(?:\s+\d{4})?|\d{4}\s+live|concert(?:\s+\d{4})?|\d{4}\s+concert/i.test(str);
+}
+
+function hasVersionCombined(str) {
+  return /(version|mix|edit|radio|extended|short|instrumental|acoustic|unplugged)(?:\s+\d{4})?|\d{4}\s+(version|mix|edit|radio|extended|short|instrumental|acoustic|unplugged)/i.test(str);
+}
+
+function hasDeluxeCombined(str) {
+  return /(deluxe|greatest hits|expanded|edition|bonus|explicit|clean|single|ep|album|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo)(?:\s+\d{4})?|\d{4}\s+(deluxe|greatest hits|expanded|edition|bonus|explicit|clean|single|ep|album|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo)/i.test(str);
+}
+
 function getVersionType(str) {
   const lower = str.toLowerCase();
+  
+  // Check for combined patterns first (more specific) - handles both with and without years
+  if (hasRemasterCombined(lower)) return 'remaster';
+  if (hasLiveCombined(lower)) return 'live';
+  if (hasVersionCombined(lower)) return 'version';
+  if (hasDeluxeCombined(lower)) return 'deluxe';
+  
+  // Then check for individual patterns
   if (hasRemaster(lower)) return 'remaster';
   if (hasLive(lower)) return 'live';
   if (hasVersion(lower)) return 'version';
   if (hasYear(lower)) return 'year';
+  if (hasDeluxe(lower)) return 'deluxe';
+  
   return 'original';
 }
 
@@ -64,11 +112,67 @@ function getBaseTitle(str) {
 }
 
 /**
- * Computes a similarity score between target and candidate metadata.
- * Returns an object with total score, component scores, and matchType ('perfect', 'partial', 'none').
- * Now with STRICT version compatibility - if target is live, only return live versions, etc.
+ * Enhanced two-step matching workflow:
+ * 1. First attempt: Try to match with version indicators (Live, Remastered, etc.)
+ * 2. Second attempt: Strip version indicators and search again
+ * 3. New thresholds: Skip (0.1-0.2), Partial (0.3-0.7), Perfect (>0.7)
  */
 export function scoreTrackMatch({ title, artist, duration, album }, candidate, debugIndex = null) {
+  // Step 1: Try matching with version indicators intact
+  const firstAttempt = scoreTrackMatchInternal({ title, artist, duration, album }, candidate, false);
+  
+  // Step 2: If first attempt failed or is partial, try with stripped version indicators
+  let secondAttempt = null;
+  if (firstAttempt.matchType === 'none' || firstAttempt.matchType === 'partial') {
+    const strippedTitle = getBaseTitle(title);
+    const strippedCandidateTitle = getBaseTitle(candidate.title);
+    
+    // Only try second attempt if we actually stripped something
+    if (strippedTitle !== normalize(title) || strippedCandidateTitle !== normalize(candidate.title)) {
+      secondAttempt = scoreTrackMatchInternal(
+        { 
+          title: strippedTitle, 
+          artist, 
+          duration, 
+          album 
+        }, 
+        { 
+          ...candidate, 
+          title: strippedCandidateTitle 
+        }, 
+        true
+      );
+    }
+  }
+
+  // Choose the better result
+  let finalResult = firstAttempt;
+  if (secondAttempt && secondAttempt.score > firstAttempt.score) {
+    finalResult = {
+      ...secondAttempt,
+      matchType: 'partial', // Second attempt is always partial since we stripped version info
+      strippedMatch: true
+    };
+  }
+
+  // Apply new threshold logic
+  if (finalResult.score >= 0.7) {
+    finalResult.matchType = 'perfect';
+  } else if (finalResult.score >= 0.3) {
+    finalResult.matchType = 'partial';
+  } else if (finalResult.score >= 0.1) {
+    finalResult.matchType = 'partial'; // Still partial for manual review
+  } else {
+    finalResult.matchType = 'none';
+  }
+
+  return finalResult;
+}
+
+/**
+ * Internal scoring function - the core matching logic
+ */
+function scoreTrackMatchInternal({ title, artist, duration, album }, candidate, isStrippedVersion = false) {
   // Defensive normalization
   const inputTitle = normalize(title);
   const inputArtist = normalizeArtist(artist);
@@ -77,20 +181,15 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
   const compArtist = normalizeArtist(candidate.artist);
   const compAlbum = normalizeAlbum(candidate.album || '');
 
-  // Get base titles (without version indicators)
-  const inputBaseTitle = getBaseTitle(title);
-  const compBaseTitle = getBaseTitle(candidate.title);
-
   // Get version types
   const inputVersion = getVersionType(title);
   const compVersion = getVersionType(candidate.title);
 
-  // STRICT VERSION COMPATIBILITY CHECK
-  // If versions don't match, heavily penalize or reject
+  // Version compatibility - more lenient for stripped versions
   let versionCompatibilityMultiplier = 1.0;
   let versionRejected = false;
   
-  if (inputVersion !== compVersion) {
+  if (inputVersion !== compVersion && !isStrippedVersion) {
     // If input is live, ONLY accept live versions
     if (inputVersion === 'live' && compVersion !== 'live') {
       versionRejected = true;
@@ -102,6 +201,10 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
     // If input is version (edit, mix, etc), ONLY accept version types
     else if (inputVersion === 'version' && compVersion !== 'version') {
       versionRejected = true;
+    }
+    // If input is deluxe/edition, prefer matching versions
+    else if (inputVersion === 'deluxe' && compVersion !== 'deluxe') {
+      versionCompatibilityMultiplier = 0.6; // 40% penalty
     }
     // If input is original, prefer original but allow others with penalty
     else if (inputVersion === 'original') {
@@ -120,15 +223,8 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
   // Title scoring with multiple approaches
   let titleScore = fuzz.token_set_ratio(inputTitle, compTitle) / 100;
   
-  // Base title comparison (ignoring version differences)
-  const baseTitleScore = fuzz.token_set_ratio(inputBaseTitle, compBaseTitle) / 100;
-  
-  // Use the better of the two title scores
-  titleScore = Math.max(titleScore, baseTitleScore);
-
   // Apply version compatibility multiplier
   titleScore *= versionCompatibilityMultiplier;
-
   titleScore = Math.max(0, Math.min(1, titleScore));
 
   // Artist: token set ratio, but also check for token overlap (Jaccard)
@@ -153,7 +249,7 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
     const diff = Math.abs(duration - candidate.duration);
     durationScore = diff <= 2 ? 1 : 1 - Math.min(10, diff) / 10; // ±2s = perfect
   } else {
-    durationScore = 0.5; // If duration missing, reduce trust
+    durationScore = 0.8; // If duration missing, still give decent score instead of 0.5
   }
 
   // Check if this is likely an Apple Music conversion (no album info or Apple Music patterns)
@@ -173,14 +269,18 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
     return { matchType: 'none', score: 0, titleScore: 0, artistScore, durationScore, albumScore };
   }
 
-  // Refined matchType logic with better thresholds
+  // For stripped versions, always return partial match type
+  if (isStrippedVersion) {
+    return { matchType: 'partial', score: totalScore, titleScore, artistScore, durationScore, albumScore };
+  }
+
+  // Legacy matchType logic for first attempt
   let matchType = 'none';
-  if (titleScore >= 0.6 && durationScore >= 0.4 && artistScore >= 0.4) {
+  if (titleScore >= 0.6 && artistScore >= 0.3) {
     matchType = 'perfect';
-  } else if (titleScore >= 0.5 && durationScore >= 0.3 && artistScore >= 0.2) {
+  } else if (titleScore >= 0.4 && artistScore >= 0.2) {
     matchType = 'partial';
-  } else if (titleScore >= 0.7 && durationScore >= 0.3) {
-    // Allow high title matches even with lower artist scores
+  } else if (titleScore >= 0.7) {
     matchType = 'partial';
   } else {
     matchType = 'none';

@@ -13,8 +13,8 @@ export function detectPlatform(link) {
   if (url.includes('deezer.com')) return 'deezer';
   if (url.includes('spotify.com')) return 'spotify';
   if (url.includes('music.youtube.com')) return 'ytmusic';
-  if (url.includes('youtube.com/playlist')) return 'youtube';
-  if (url.includes('youtube.com/watch') && url.includes('v=')) return 'youtube';
+  if (url.includes('youtube.com/playlist') || url.includes('m.youtube.com/playlist')) return 'youtube';
+  if ((url.includes('youtube.com/watch') || url.includes('m.youtube.com/watch')) && url.includes('v=')) return 'youtube';
   if (url.includes('music.apple.com')) return 'applemusic';
   if (url.includes('tidal.com') || url.includes('listen.tidal.com')) return 'tidal';  
   if (url.includes('music.amazon.com') || url.includes('amazon.com/music')) return 'amazonmusic';
@@ -45,10 +45,14 @@ export function detectPlatformDetail(link) {
     if (url.includes('/track/')) result.type = 'track';
     else if (url.includes('/album/')) result.type = 'album';
     else if (url.includes('/playlist/')) result.type = 'playlist';
-  } else if (url.includes('music.youtube.com') || url.includes('youtube.com')) {
-    result.platform = url.includes('music.youtube.com') ? 'ytmusic' : 'youtube';
-    if (url.includes('/playlist?')) result.type = 'playlist';
-    else if (url.includes('/watch?')) result.type = 'track';
+  } else if (url.includes('music.youtube.com') || url.includes('youtube.com') || url.includes('m.youtube.com')) {
+    if (url.includes('music.youtube.com')) {
+      result.platform = 'ytmusic';
+    } else {
+      result.platform = 'youtube';
+    }
+    if (url.includes('/playlist?') || url.includes('/playlist?')) result.type = 'playlist';
+    else if (url.includes('/watch?') || url.includes('/watch?')) result.type = 'track';
   } else if (url.includes('music.apple.com')) {
     result.platform = 'applemusic';
     if (url.includes('/playlist/')) result.type = 'playlist';
@@ -98,17 +102,17 @@ export function isAlbum(link) {
 export function isYouTubePlaylist(link) {
   if (!link || typeof link !== 'string') return false;
   const url = link.trim();
-  // Accept both www.youtube.com and music.youtube.com playlist links
+  // Accept www.youtube.com, music.youtube.com, and m.youtube.com playlist links
   return (
-    /https?:\/\/(www\.|music\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/.test(url)
+    /https?:\/\/(www\.|music\.|m\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/.test(url)
   );
 }
 
 export function isYouTubeTrack(link) {
   if (!link || typeof link !== 'string') return false;
   const url = link.trim();
-  // Accept both www.youtube.com and music.youtube.com track links
+  // Accept www.youtube.com, music.youtube.com, and m.youtube.com track links
   return (
-    /https?:\/\/(www\.|music\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+/.test(url)
+    /https?:\/\/(www\.|music\.|m\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+/.test(url)
   );
 }

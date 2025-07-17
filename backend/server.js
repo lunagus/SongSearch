@@ -1038,7 +1038,7 @@ app.get('/convert-web-playlist', async (req, res) => {
     sourcePlatform = 'deezer';
   } else if (extractedUrl.includes('music.youtube.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'ytmusic';
-  } else if (extractedUrl.includes('youtube.com/playlist')) {
+  } else if (extractedUrl.includes('youtube.com/playlist') || extractedUrl.includes('m.youtube.com/playlist')) {
     sourcePlatform = 'youtube';
   }
 

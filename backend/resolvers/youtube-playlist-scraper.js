@@ -5,18 +5,34 @@ import fetch from 'node-fetch';
 export default async function resolveYouTubePlaylist(link) {
   try {
     console.log('[YouTubePlaylistResolver] Incoming link:', link);
-    // If the link is a music.youtube.com/playlist, convert it to www.youtube.com/playlist
+    
+    // Normalize the link to handle different YouTube domains
     let normalizedLink = link;
+    
+    // Handle music.youtube.com links
     if (link.includes('music.youtube.com/playlist')) {
       normalizedLink = link.replace('music.youtube.com/playlist', 'www.youtube.com/playlist');
       console.log('[YouTubePlaylistResolver] Normalized link (music. stripped):', normalizedLink);
-    } else {
+    }
+    // Handle mobile YouTube links
+    else if (link.includes('m.youtube.com/playlist')) {
+      normalizedLink = link.replace('m.youtube.com/playlist', 'www.youtube.com/playlist');
+      console.log('[YouTubePlaylistResolver] Normalized link (mobile stripped):', normalizedLink);
+    }
+    // Handle mobile YouTube watch links (for single tracks)
+    else if (link.includes('m.youtube.com/watch')) {
+      normalizedLink = link.replace('m.youtube.com/watch', 'www.youtube.com/watch');
+      console.log('[YouTubePlaylistResolver] Normalized link (mobile watch):', normalizedLink);
+    }
+    else {
       console.log('[YouTubePlaylistResolver] Link did not require normalization:', normalizedLink);
     }
+    
     // Extract playlist ID for logging
     const match = normalizedLink.match(/[?&]list=([a-zA-Z0-9_-]+)/);
     const playlistId = match ? match[1] : null;
     console.log('[YouTubePlaylistResolver] Playlist ID to resolve:', playlistId);
+    
     // If Mix/Radio playlist (ID starts with RD), use browserless+Playwright HTML scraping
     if (playlistId && playlistId.startsWith('RD')) {
       const url = `https://www.youtube.com/playlist?list=${playlistId}`;
@@ -44,21 +60,13 @@ export default async function resolveYouTubePlaylist(link) {
       }
       return { name, tracks };
     }
+    
     // Use youtubei playlist resolver for all other playlist links
     const { name, tracks } = await youtubeiResolveYouTubePlaylist(normalizedLink);
     return {
       name,
       tracks
     };
-    // --- Old logic (commented out) ---
-    // Extract playlist ID from any list=... param in the URL
-    // const match = link.match(/[?&]list=([a-zA-Z0-9_-]+)/);
-    // if (!match) throw new Error('Invalid YouTube playlist URL');
-    // const playlistId = match[1];
-    // Always use the full playlist URL for scraping
-    // const url = link.includes('list=') ? link : `https://www.youtube.com/playlist?list=${playlistId}`;
-    // const { name, tracks } = await scrapeYouTubeMusicPlaylist(url);
-    // return { name, tracks };
   } catch (error) {
     return {
       name: 'YouTube Playlist',

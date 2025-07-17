@@ -59,10 +59,59 @@ function cleanYouTubeTitle(title) {
   return cleaned;
 }
 
-// YouTube-specific scoring function
+// YouTube-specific scoring function with enhanced two-step matching
 function scoreYouTubeTrackMatch(youtubeTrack, deezerCandidate) {
+  // Step 1: Try with original cleaned title
+  const firstAttempt = scoreYouTubeTrackMatchInternal(youtubeTrack, deezerCandidate, false);
+  
+  // Step 2: If first attempt failed or is partial, try with further stripped title
+  let secondAttempt = null;
+  if (firstAttempt.matchType === 'none' || firstAttempt.matchType === 'partial') {
+    const furtherStrippedTitle = cleanYouTubeTitle(youtubeTrack.title)
+      .replace(/\s*\(.*?\)|\[.*?\]/g, '')  // Remove any remaining parentheses/brackets
+      .replace(/\b(remaster(ed)?|deluxe|greatest hits|expanded|edition|version|bonus|explicit|clean|single|ep|album|live|session|sessions|anniversary|reissue|original|platinum|collection|hits|box set|disc|cd|vinyl|digital|mono|stereo)\b/g, '')
+      .replace(/\b(19|20)\d{2}\b/g, '')  // Remove years
+      .replace(/[^a-z0-9\s]/g, '')         // Remove punctuation
+      .replace(/\s+/g, ' ')                // Collapse whitespace
+      .trim();
+    
+    if (furtherStrippedTitle !== cleanYouTubeTitle(youtubeTrack.title)) {
+      secondAttempt = scoreYouTubeTrackMatchInternal(
+        { ...youtubeTrack, title: furtherStrippedTitle }, 
+        deezerCandidate, 
+        true
+      );
+    }
+  }
+
+  // Choose the better result
+  let finalResult = firstAttempt;
+  if (secondAttempt && secondAttempt.score > firstAttempt.score) {
+    finalResult = {
+      ...secondAttempt,
+      matchType: 'partial', // Second attempt is always partial since we stripped more info
+      strippedMatch: true
+    };
+  }
+
+  // Apply new threshold logic
+  if (finalResult.score >= 0.7) {
+    finalResult.matchType = 'perfect';
+  } else if (finalResult.score >= 0.3) {
+    finalResult.matchType = 'partial';
+  } else if (finalResult.score >= 0.1) {
+    finalResult.matchType = 'partial'; // Still partial for manual review
+  } else {
+    finalResult.matchType = 'none';
+  }
+
+  return finalResult;
+}
+
+// Internal YouTube scoring function
+function scoreYouTubeTrackMatchInternal(youtubeTrack, deezerCandidate, isStrippedVersion = false) {
   // Normalize inputs
-  const inputTitle = youtubeTrack.title.toLowerCase()
+  const inputTitle = cleanYouTubeTitle(youtubeTrack.title).toLowerCase()
     .replace(/\s*\(.*?\)|\[.*?\]/g, '')  // Remove (Official Video), [HD], etc.
     .replace(/[^a-z0-9\s]/g, '')         // Remove punctuation
     .replace(/\s+/g, ' ')                // Collapse whitespace
@@ -86,6 +135,7 @@ function scoreYouTubeTrackMatch(youtubeTrack, deezerCandidate) {
 
   // Title scoring (70% weight)
   const titleScore = fuzz.token_set_ratio(inputTitle, compTitle) / 100;
+  
   // Artist scoring (25% weight) - use both fuzzy and token overlap
   let artistScore = fuzz.token_set_ratio(inputArtist, compArtist) / 100;
   if (inputArtist && compArtist) {
@@ -107,7 +157,19 @@ function scoreYouTubeTrackMatch(youtubeTrack, deezerCandidate) {
   // YouTube-specific weights
   const totalScore = 0.7 * titleScore + 0.25 * artistScore + 0.05 * durationScore;
 
-  // YouTube-specific match type logic
+  // For stripped versions, always return partial match type
+  if (isStrippedVersion) {
+    return {
+      matchType: 'partial',
+      score: totalScore,
+      titleScore,
+      artistScore,
+      durationScore,
+      albumScore: 0 // Not used for YouTube
+    };
+  }
+
+  // Legacy match type logic for first attempt
   let matchType = 'none';
   if (totalScore > 0.75 && titleScore > 0.7 && artistScore > 0.5) {
     matchType = 'perfect';
@@ -162,11 +224,9 @@ export async function createDeezerPlaylistFromYouTube(token, name, tracks, progr
   const skipped = [];
   let searched = 0;
 
-  // Step 3: Search and collect track IDs with fuzzy matching
+  // Step 3: Search and collect track IDs with enhanced fuzzy matching
   for (const { title, artist } of tracks) {
     console.log(`[Deezer Search] Processing: ${title} - ${artist}`);
-    let foundTrackId = null;
-    let foundTrack = null;
     
     // Strategy 1: Try with cleaned title
     const cleanedTitle = cleanYouTubeTitle(title);
@@ -174,14 +234,8 @@ export async function createDeezerPlaylistFromYouTube(token, name, tracks, progr
     
     let query = encodeURIComponent(cleanedTitle);
     let searchUrl = `https://api.deezer.com/search?q=${query}&limit=10`;
-    let searchRes = await deezerFetch((t = token) =>
-      fetchWithDeezerAuth(
-        (tok) => fetch(searchUrl, { 
-          headers: { Authorization: `Bearer ${tok}` } 
-        }),
-        t
-      )
-    );
+    // Deezer search is public API - no authentication needed
+    let searchRes = await deezerFetch(() => fetch(searchUrl));
     let searchData = await searchRes.json();
     let candidates = (searchData.data || []);
     
@@ -190,52 +244,11 @@ export async function createDeezerPlaylistFromYouTube(token, name, tracks, progr
       console.log(`[Deezer Search] Strategy 2 - Original title: ${title}`);
       query = encodeURIComponent(title);
       searchUrl = `https://api.deezer.com/search?q=${query}&limit=10`;
-      searchRes = await deezerFetch((t = token) =>
-        fetchWithDeezerAuth(
-          (tok) => fetch(searchUrl, { 
-            headers: { Authorization: `Bearer ${tok}` } 
-          }),
-          t
-        )
-      );
+      searchRes = await deezerFetch(() => fetch(searchUrl));
       searchData = await searchRes.json();
       candidates = (searchData.data || []);
     }
-    
-    // Strategy 3: If still no results, try with title + artist
-    if (candidates.length === 0 && artist) {
-      console.log(`[Deezer Search] Strategy 3 - Title + Artist: ${title} ${artist}`);
-      query = encodeURIComponent(`${title} ${artist}`);
-      searchUrl = `https://api.deezer.com/search?q=${query}&limit=10`;
-      searchRes = await deezerFetch((t = token) =>
-        fetchWithDeezerAuth(
-          (tok) => fetch(searchUrl, { 
-            headers: { Authorization: `Bearer ${tok}` } 
-          }),
-          t
-        )
-      );
-      searchData = await searchRes.json();
-      candidates = (searchData.data || []);
-    }
-    
-    // Strategy 4: If still no results, try with cleaned title + artist
-    if (candidates.length === 0 && artist) {
-      console.log(`[Deezer Search] Strategy 4 - Cleaned title + Artist: ${cleanedTitle} ${artist}`);
-      query = encodeURIComponent(`${cleanedTitle} ${artist}`);
-      searchUrl = `https://api.deezer.com/search?q=${query}&limit=10`;
-      searchRes = await deezerFetch((t = token) =>
-        fetchWithDeezerAuth(
-          (tok) => fetch(searchUrl, { 
-            headers: { Authorization: `Bearer ${tok}` } 
-          }),
-          t
-        )
-      );
-      searchData = await searchRes.json();
-      candidates = (searchData.data || []);
-    }
-    
+
     if (candidates.length > 0) {
       // Convert candidates to proper format and score them
       const scoredCandidates = candidates.map(deezerTrack => ({
@@ -256,27 +269,48 @@ export async function createDeezerPlaylistFromYouTube(token, name, tracks, progr
       // Sort by score (highest first)
       scored.sort((a, b) => b.score - a.score);
 
-      // Only consider plausible candidates (score > 0.5 for YouTube)
-      const plausibleScored = scored.filter(s => s.score > 0.5);
+      // Only consider plausible candidates (score > 0.2)
+      const plausibleScored = scored.filter(s => s.score > 0.2);
       const best = scored[0];
 
       if (best.matchType === 'perfect') {
         console.log(`[Deezer Search] Perfect match: ${best.title} - ${best.artist} (score: ${best.score.toFixed(2)})`);
-        foundTrackId = best.id;
-        foundTrack = best;
         
-        // Add to matched tracks
+        // Add track to playlist
+        await deezerFetch((t = token) =>
+          fetchWithDeezerAuth(
+            (tok) => fetch(`https://api.deezer.com/playlist/${playlistId}/tracks`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${tok}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: `songs=${best.id}`,
+            }),
+            t
+          )
+        );
+        
         matched.push({
           title: title,
           artist: artist,
           status: 'success',
-          deezerId: foundTrackId,
+          deezerId: best.id,
           link: best.link
         });
+        if (progressCb) {
+          progressCb(searched + 1, {
+            title: title,
+            artist: artist,
+            found: true,
+            deezerTrack: best,
+            matchScore: best.score,
+            matchType: best.matchType
+          });
+        }
       } else if (best.matchType === 'partial') {
         console.log(`[Deezer Search] Partial match: ${best.title} - ${best.artist} (score: ${best.score.toFixed(2)})`);
         
-        // Add to mismatched tracks with suggestions
         mismatched.push({
           title: title,
           artist: artist,
@@ -289,62 +323,58 @@ export async function createDeezerPlaylistFromYouTube(token, name, tracks, progr
             score: s.score
           }))
         });
+        if (progressCb) {
+          progressCb(searched + 1, {
+            title: title,
+            artist: artist,
+            found: false,
+            matchType: best.matchType,
+            suggestions: plausibleScored.slice(0, 3)
+          });
+        }
       } else {
         console.log(`[Deezer Search] No plausible match for: ${title} (best score: ${best.score.toFixed(2)})`);
         
-        // Add to skipped tracks
         skipped.push({
           title: title,
           artist: artist,
-          reason: 'No plausible match found on Deezer'
+          reason: 'No plausible match'
         });
+        if (progressCb) {
+          progressCb(searched + 1, {
+            title: title,
+            artist: artist,
+            found: false,
+            reason: 'No plausible match'
+          });
+        }
       }
     } else {
       console.log(`[Deezer Search] No candidates found for: ${title}`);
       
-      // Add to skipped tracks
       skipped.push({
         title: title,
         artist: artist,
-        reason: 'No candidates found on Deezer'
+        reason: 'No candidates found'
       });
+      if (progressCb) {
+        progressCb(searched + 1, {
+          title: title,
+          artist: artist,
+          found: false,
+          reason: 'No candidates found'
+        });
+      }
     }
-    
     searched++;
-    if (progressCb) progressCb(searched, { title: cleanedTitle, found: !!foundTrackId });
   }
 
-  // Step 4: Add tracks to playlist
-  if (matched.length > 0) {
-    console.log(`[Deezer Search] Adding ${matched.length} tracks to playlist`);
-    const trackIds = matched.map(track => track.deezerId);
-    const tracksParam = trackIds.join(',');
-    
-    await deezerFetch((t = token) =>
-      fetchWithDeezerAuth(
-        (tok) => fetch(`https://api.deezer.com/playlist/${playlistId}/tracks`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${tok}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `songs=${tracksParam}`,
-        }),
-        t
-      )
-    );
-  }
-
-  // Build normalized tracks array for frontend
-  const matchedTracks = matched.map(t => ({ ...t, status: 'success' }));
-  const mismatchedTracks = mismatched.map(t => ({ ...t, status: 'mismatched' }));
-  const skippedTracks = skipped.map(t => ({ ...t, status: 'failed' }));
-  
+  console.log('Deezer playlist creation complete!');
   return {
-    matched: matchedTracks,
-    mismatched: mismatchedTracks,
-    skipped: skippedTracks,
+    matched,
+    mismatched,
+    skipped,
     playlistUrl: `https://www.deezer.com/playlist/${playlistId}`,
-    tracks: [...matchedTracks, ...mismatchedTracks, ...skippedTracks]
+    tracks: [...matched, ...mismatched, ...skipped]
   };
 } 

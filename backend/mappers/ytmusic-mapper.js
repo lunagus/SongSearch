@@ -19,7 +19,10 @@ export default async function ytmusicMapper({ title, artist, duration }) {
 
     console.log(`[YTMusicMapper] Found ${searchResults.items.length} search results`);
 
-    // Find the first track that matches title, artist, and duration
+    let bestMatch = null;
+    let bestScore = 0;
+
+    // Score each video and find the best match
     for (const video of searchResults.items) {
       const videoTitle = typeof video.title === 'string' ? video.title : '';
       const channelTitle = typeof video.author?.name === 'string' ? video.author.name : '';
@@ -40,27 +43,64 @@ export default async function ytmusicMapper({ title, artist, duration }) {
       const searchTitle = title.toLowerCase();
       const searchArtist = artist.toLowerCase();
       
-      // Check if title and artist match
-      const titleMatch = trackTitle.includes(searchTitle) || searchTitle.includes(trackTitle);
-      const artistMatch = trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist);
-      
-      // Check duration if available (within 5 seconds tolerance)
-      let durationMatch = true;
-      if (duration && video.duration) {
-        const durationDiff = Math.abs(duration - video.duration);
-        durationMatch = durationDiff <= 5;
+      // Score title match (0-1)
+      let titleScore = 0;
+      if (trackTitle.includes(searchTitle) || searchTitle.includes(trackTitle)) {
+        titleScore = 1;
+      } else {
+        // Partial title match
+        const titleWords = searchTitle.split(' ').filter(word => word.length > 2);
+        const trackTitleWords = trackTitle.split(' ').filter(word => word.length > 2);
+        const matchingWords = titleWords.filter(word => trackTitleWords.some(tw => tw.includes(word) || word.includes(tw)));
+        titleScore = titleWords.length > 0 ? matchingWords.length / titleWords.length : 0;
       }
       
-      console.log(`[YTMusicMapper] Checking: "${videoTitle}" by ${channelTitle}`);
-      console.log(`[YTMusicMapper] Title match: ${titleMatch}, Artist match: ${artistMatch}, Duration match: ${durationMatch}`);
+      // Score artist match (0-1) - YouTube is less reliable for artist matching
+      let artistScore = 0;
+      if (trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist)) {
+        artistScore = 1;
+      } else {
+        // Partial artist match
+        const artistWords = searchArtist.split(' ').filter(word => word.length > 2);
+        const trackArtistWords = trackArtist.split(' ').filter(word => word.length > 2);
+        const matchingWords = artistWords.filter(word => trackArtistWords.some(aw => aw.includes(word) || word.includes(aw)));
+        artistScore = artistWords.length > 0 ? matchingWords.length / artistWords.length : 0;
+      }
       
-      if (titleMatch && artistMatch && durationMatch) {
-        console.log(`[YTMusicMapper] Found match: "${videoTitle}" by ${channelTitle}`);
-        return `https://music.youtube.com/watch?v=${video.id}`;
+      // Score duration match (0-1)
+      let durationScore = 0.5; // Default score if no duration info
+      if (duration && video.duration) {
+        const durationDiff = Math.abs(duration - video.duration);
+        if (durationDiff <= 5) {
+          durationScore = 1;
+        } else if (durationDiff <= 15) {
+          durationScore = 0.7;
+        } else if (durationDiff <= 30) {
+          durationScore = 0.3;
+        } else {
+          durationScore = 0;
+        }
+      }
+      
+      // Calculate total score (title 60%, artist 20%, duration 20%) - YouTube prioritizes title
+      const totalScore = (titleScore * 0.6) + (artistScore * 0.2) + (durationScore * 0.2);
+      
+      console.log(`[YTMusicMapper] Checking: "${videoTitle}" by ${channelTitle}`);
+      console.log(`[YTMusicMapper] Title score: ${titleScore.toFixed(2)}, Artist score: ${artistScore.toFixed(2)}, Duration score: ${durationScore.toFixed(2)}, Total: ${totalScore.toFixed(2)}`);
+      
+      if (totalScore > bestScore) {
+        bestScore = totalScore;
+        bestMatch = video;
       }
     }
 
-    console.log('[YTMusicMapper] No matching track found');
+    // Accept match if score is above threshold (lower for YouTube due to less reliable metadata)
+    if (bestMatch && bestScore >= 0.5) {
+      console.log(`[YTMusicMapper] Found match: "${bestMatch.title}" by ${bestMatch.author?.name || 'Unknown'} (score: ${bestScore.toFixed(2)})`);
+      return `https://music.youtube.com/watch?v=${bestMatch.id}`;
+    }
+
+    console.log(`[YTMusicMapper] No matching track found (best score: ${bestScore.toFixed(2)})`);
     return null;
   } catch (error) {
     console.error('[YTMusicMapper] Error during search:', error);
