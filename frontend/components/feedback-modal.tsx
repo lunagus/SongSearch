@@ -63,7 +63,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
     try {
       // Send feedback to backend API
-      const response = await fetch('http://127.0.0.1:5000/feedback', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

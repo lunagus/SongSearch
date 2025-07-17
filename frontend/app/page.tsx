@@ -125,7 +125,7 @@ export default function SongSeekApp() {
   // Check session validity with backend
   async function checkSessionValidity(platform: string, sessionKey: string) {
     if (!sessionKey) return false;
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:5000';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL!;
     try {
       const res = await fetch(`${backendUrl}/api/check-session?platform=${platform}&session=${sessionKey}`, {
         credentials: 'include'
@@ -1234,7 +1234,7 @@ export default function SongSeekApp() {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "Failed to connect to Deezer",
+        description: error instanceof Error ? error.message : "Failed to connect to Deezer",
       });
     }
   };

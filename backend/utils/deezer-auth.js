@@ -6,7 +6,7 @@ dotenv.config();
 
 const clientId = process.env.DEEZER_CLIENT_ID;
 const clientSecret = process.env.DEEZER_CLIENT_SECRET;
-const redirectUri = process.env.DEEZER_REDIRECT_URI || 'http://127.0.0.1:5000/deezer-callback';
+const redirectUri = process.env.DEEZER_REDIRECT_URI;
 
 export function getDeezerLoginUrl(state) {
   const scope = 'basic_access,email,offline_access,manage_library';

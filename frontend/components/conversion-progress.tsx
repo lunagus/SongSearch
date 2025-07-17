@@ -44,7 +44,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
     if (!isOpen || !session) return
 
     // Connect to SSE for real-time progress updates
-    const eventSource = new EventSource(`http://127.0.0.1:5000/progress/${encodeURIComponent(session)}`)
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_BACKEND_URL}/progress/${encodeURIComponent(session)}`)
     
     eventSource.onmessage = (event) => {
       try {

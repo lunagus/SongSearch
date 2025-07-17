@@ -6,7 +6,7 @@ dotenv.config();
 
 const clientId = process.env.SPOTIFY_CLIENT_ID;
 const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-const redirectUri = process.env.SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:5000/callback';
+const redirectUri = process.env.SPOTIFY_REDIRECT_URI;
 
 export function getSpotifyLoginUrl(state) {
   const scope = 'playlist-modify-public playlist-modify-private';

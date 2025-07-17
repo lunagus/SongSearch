@@ -90,8 +90,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Allow requests from both localhost and 127.0.0.1 on port 3000
-  if (origin && (origin.includes('localhost:3000') || origin.includes('127.0.0.1:3000'))) {
+  // Allow requests from production frontend
+  if (origin && origin.includes('songseek.vercel.app')) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
@@ -135,7 +135,7 @@ app.get('/callback', async (req, res) => {
       platform: 'spotify'
     });
 
-    res.redirect(`http://127.0.0.1:3000/login-success?session=${state}`);
+    res.redirect(`https://songseek.vercel.app/login-success?session=${state}`);
   } catch (err) {
     console.error('OAuth callback error:', err);
     res.status(500).send('Authentication failed');
@@ -166,7 +166,7 @@ app.get('/youtube/callback', async (req, res) => {
       refreshToken: tokens.refresh_token,
       platform: 'youtube'
     });
-    res.redirect(`http://127.0.0.1:3000/login-success?youtube_session=${state}`);
+    res.redirect(`https://songseek.vercel.app/login-success?youtube_session=${state}`);
   } catch (err) {
     console.error('YouTube OAuth error:', err);
     res.status(500).send('Authentication failed');
@@ -197,7 +197,7 @@ app.get('/deezer/callback', async (req, res) => {
       refreshToken: tokens.refresh_token,
       platform: 'deezer'
     });
-    res.redirect(`http://127.0.0.1:3000/login-success?deezer_session=${state}`);
+    res.redirect(`https://songseek.vercel.app/login-success?deezer_session=${state}`);
   } catch (err) {
     console.error('Deezer OAuth error:', err);
     res.status(500).send('Authentication failed');

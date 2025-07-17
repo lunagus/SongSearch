@@ -10,8 +10,8 @@ const {
   YOUTUBE_REDIRECT_URI,
 } = process.env;
 
-// Use 127.0.0.1 as the default if not set in .env
-const REDIRECT_URI = YOUTUBE_REDIRECT_URI || 'http://127.0.0.1:5000/youtube/callback';
+// Use environment variable directly - no fallback to localhost
+const REDIRECT_URI = YOUTUBE_REDIRECT_URI;
 
 const SCOPES = ['https://www.googleapis.com/auth/youtube'];
 
