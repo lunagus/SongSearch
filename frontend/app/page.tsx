@@ -24,6 +24,7 @@ import {
   Play,
   Headphones,
   Radio,
+  Send,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTheme } from "next-themes"
@@ -1686,22 +1687,22 @@ export default function SongSeekApp() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t py-6 text-sm text-gray-500 text-center mt-12 sm:mt-16">
+      <footer className="border-t bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50 py-8 text-sm text-gray-600 dark:text-gray-400 text-center mt-12 sm:mt-16">
         {/* Mobile Controls */}
-        <div className="flex items-center justify-center gap-3 mb-4 sm:hidden">
+        <div className="flex items-center justify-center gap-3 mb-6 sm:hidden">
           {/* Help Button */}
           <Button
             variant="outline"
             size="sm"
             onClick={showOnboardingManually}
-            className="gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-200/50 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200"
+            className="gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-gray-200/60 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-sm"
           >
             <HelpCircle className="h-4 w-4" />
             <span>Help</span>
           </Button>
 
           {/* Dark Mode Toggle */}
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60 shadow-sm">
             <Sun className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             {mounted && (
             <Switch checked={theme === "dark"} onCheckedChange={handleThemeChange} />
@@ -1711,22 +1712,53 @@ export default function SongSeekApp() {
         </div>
 
         {/* Footer Links */}
-        <p>
-          <a href="https://github.com/lunagus" className="underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors inline-flex items-center gap-1">
-            <GitHubIcon className="h-4 w-4" />
-            lunagus
-          </a> · 
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+          {/* GitHub Link */}
+          <a 
+            href="https://github.com/lunagus" 
+            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <GitHubIcon className="h-4 w-4 text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors" />
+            <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
+              lunagus
+            </span>
+          </a>
+
+          {/* Divider */}
+          <div className="hidden sm:block w-px h-6 bg-gray-300 dark:bg-gray-600" />
+
+          {/* Feedback Button */}
           <button 
             onClick={() => setShowFeedbackModal(true)}
-            className="ml-2 underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors bg-transparent border-none cursor-pointer"
+            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-sm border border-blue-200/50 dark:border-blue-700/50 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/30 dark:hover:to-indigo-800/30 transition-all duration-200 shadow-sm hover:shadow-md"
           >
-            Send Feedback
-          </button> · 
-          <a href="https://coff.ee/lunagus" className="ml-2 underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors inline-flex items-center gap-1">
-            <BuyMeACoffeeIcon className="h-4 w-4" />
-            Donate
+            <Send className="h-4 w-4 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
+            <span className="font-medium text-blue-700 dark:text-blue-300 group-hover:text-blue-800 dark:group-hover:text-blue-200 transition-colors">
+              Send Feedback
+            </span>
+          </button>
+
+          {/* Divider */}
+          <div className="hidden sm:block w-px h-6 bg-gray-300 dark:bg-gray-600" />
+
+          {/* Donate Link */}
+          <a 
+            href="https://coff.ee/lunagus" 
+            className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 backdrop-blur-sm border border-amber-200/50 dark:border-amber-700/50 hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-800/30 dark:hover:to-orange-800/30 transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <BuyMeACoffeeIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors" />
+            <span className="font-medium text-amber-700 dark:text-amber-300 group-hover:text-amber-800 dark:group-hover:text-amber-200 transition-colors">
+              Donate
+            </span>
           </a>
-        </p>
+        </div>
+
+        {/* Copyright */}
+        <div className="mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            © 2024 SongSeek. Made with ❤️ for music lovers everywhere.
+          </p>
+        </div>
       </footer>
     </div>
   )

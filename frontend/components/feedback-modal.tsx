@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { X, Send, Loader2 } from "lucide-react"
+import { X, Send, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useForm, ValidationError } from '@formspree/react'
 
 interface FeedbackModalProps {
   isOpen: boolean
@@ -15,20 +16,20 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: ""
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [state, handleSubmit] = useForm("xldleqja")
   const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     
     // Basic validation
-    if (!formData.name.trim() || !formData.email.trim() || !formData.subject.trim() || !formData.message.trim()) {
+    const formData = new FormData(e.currentTarget)
+    const name = formData.get('name') as string
+    const email = formData.get('email') as string
+    const subject = formData.get('subject') as string
+    const message = formData.get('message') as string
+
+    if (!name.trim() || !email.trim() || !subject.trim() || !message.trim()) {
       toast({
         variant: "destructive",
         title: "Missing Information",
@@ -39,7 +40,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(formData.email)) {
+    if (!emailRegex.test(email)) {
       toast({
         variant: "destructive",
         title: "Invalid Email",
@@ -59,166 +60,146 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       return
     }
 
-    setIsSubmitting(true)
-
-    try {
-      // Send feedback to backend API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          subject: formData.subject.trim(),
-          message: formData.message.trim(),
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to send feedback')
-      }
-
-      const result = await response.json()
-      
-      // Store submission timestamp for rate limiting
-      localStorage.setItem("feedback_last_submission", Date.now().toString())
-      
-      // Clear form
-      setFormData({ name: "", email: "", subject: "", message: "" })
-      
-      toast({
-        title: "Feedback Sent!",
-        description: "Thank you for your feedback. We'll review it and get back to you soon.",
-      })
-      
-      onClose()
-    } catch (error) {
-      console.error('Feedback submission error:', error)
-      toast({
-        variant: "destructive",
-        title: "Submission Failed",
-        description: error instanceof Error ? error.message : "Please try again later.",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    // Submit to Formspree
+    await handleSubmit(e)
+    
+    // Set rate limiting
+    localStorage.setItem("feedback_last_submission", Date.now().toString())
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  if (state.succeeded) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Thank You!</h3>
+            <p className="text-muted-foreground mb-4">
+              Your feedback has been submitted successfully. We'll get back to you soon!
+            </p>
+            <Button onClick={onClose} className="w-full">
+              Close
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6">
-          <div>
-            <CardTitle className="text-xl">Send Feedback</CardTitle>
-            <CardDescription className="text-base">Help us improve SongSeek by sharing your thoughts</CardDescription>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl">Send Feedback</CardTitle>
+              <CardDescription>
+                Help us improve SongSeek with your suggestions
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-8 w-8"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
-                  placeholder="Your name"
-                  maxLength={50}
-                  required
-                  className="h-11"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="your.email@example.com"
-                  maxLength={100}
-                  required
-                  className="h-11"
-                />
-              </div>
-            </div>
-            
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="subject" className="text-sm font-medium">Subject *</Label>
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                placeholder="Your name"
+                required
+                disabled={state.submitting}
+              />
+              <ValidationError 
+                prefix="Name" 
+                field="name"
+                errors={state.errors}
+                className="text-sm text-destructive"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="your.email@example.com"
+                required
+                disabled={state.submitting}
+              />
+              <ValidationError 
+                prefix="Email" 
+                field="email"
+                errors={state.errors}
+                className="text-sm text-destructive"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="subject">Subject</Label>
               <Input
                 id="subject"
-                value={formData.subject}
-                onChange={(e) => handleInputChange("subject", e.target.value)}
-                placeholder="Brief description of your feedback"
-                maxLength={100}
+                name="subject"
+                type="text"
+                placeholder="What's this about?"
                 required
-                className="h-11"
+                disabled={state.submitting}
+              />
+              <ValidationError 
+                prefix="Subject" 
+                field="subject"
+                errors={state.errors}
+                className="text-sm text-destructive"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="message" className="text-sm font-medium">Message *</Label>
+              <Label htmlFor="message">Message</Label>
               <Textarea
                 id="message"
-                value={formData.message}
-                onChange={(e) => handleInputChange("message", e.target.value)}
-                placeholder="Tell us what you think about SongSeek, any issues you've encountered, or suggestions for improvement..."
-                rows={6}
-                maxLength={1000}
+                name="message"
+                placeholder="Tell us what you think..."
+                rows={4}
                 required
-                className="resize-none"
+                disabled={state.submitting}
               />
-              <div className="text-xs text-gray-500 text-right">
-                {formData.message.length}/1000 characters
-              </div>
+              <ValidationError 
+                prefix="Message" 
+                field="message"
+                errors={state.errors}
+                className="text-sm text-destructive"
+              />
             </div>
-            
-            <div className="flex gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="flex-1 h-11"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1 h-11"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Feedback
-                  </>
-                )}
-              </Button>
-            </div>
+
+            <Button 
+              type="submit" 
+              disabled={state.submitting}
+              className="w-full"
+            >
+              {state.submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Send Feedback
+                </>
+              )}
+            </Button>
           </form>
         </CardContent>
       </Card>
