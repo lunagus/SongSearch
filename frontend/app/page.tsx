@@ -1716,6 +1716,8 @@ export default function SongSeekApp() {
           {/* GitHub Link */}
           <a 
             href="https://github.com/lunagus" 
+            target="_blank"
+            rel="noopener noreferrer"
             className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <GitHubIcon className="h-4 w-4 text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors" />
@@ -1744,6 +1746,8 @@ export default function SongSeekApp() {
           {/* Donate Link */}
           <a 
             href="https://coff.ee/lunagus" 
+            target="_blank"
+            rel="noopener noreferrer"
             className="group flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 backdrop-blur-sm border border-amber-200/50 dark:border-amber-700/50 hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-800/30 dark:hover:to-orange-800/30 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <BuyMeACoffeeIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors" />
