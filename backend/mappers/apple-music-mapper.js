@@ -1,87 +1,107 @@
 import fetch from 'node-fetch';
-import { scoreTrackMatch } from '../utils/fuzzyMatcher.js';
 
-export default async function appleMusicMapper(metadata) {
+function cleanArtistName(name) {
+  return (name || '')
+    .toLowerCase()
+    .replace(/feat\..*  $/, '')
+    .replace(/&/g, 'and')
+    .replace(/[^\w\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fetchiTunesSearch(query, limit = 10) {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=${limit}`;
+  
   try {
-    const { title, artist } = metadata;
-    // Apple Music doesn't have a public search API without authentication
-    // We'll use the iTunes Search API as a fallback, which can find Apple Music content
-    const searchQuery = `${title} ${artist}`.replace(/\s+/g, '+');
-    const searchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&media=music&entity=song&limit=10`;
-
-    const response = await fetch(searchUrl);
-    if (!response.ok) {
-      throw new Error('Failed to search iTunes/Apple Music');
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.log(`[AppleMusicMapper] iTunes API request failed with status: ${res.status}`);
+      throw new Error(`iTunes Search API failed: ${res.status}`);
     }
-
-    const data = await response.json();
+    const data = await res.json();
     if (!data.results || data.results.length === 0) {
-      return null;
+      console.log('[AppleMusicMapper] No results from iTunes API');
+      return [];
     }
-
-    // Score and rank all candidates
-    const candidates = data.results.map(track => {
-      const trackTitle = track.trackName || '';
-      const trackArtist = track.artistName || '';
-      const score = scoreTrackMatch({ title, artist }, trackTitle, trackArtist);
-      return { track, score };
-    });
-    candidates.sort((a, b) => b.score - a.score);
-
-    // Filter out low scores and covers/karaoke
-    const badWords = ['karaoke', 'tribute', 'cover', 'instrumental'];
-    const best = candidates.find(c => c.score >= 85 && !badWords.some(w => c.track.artistName.toLowerCase().includes(w)));
-
-    if (best) {
-      return buildAppleMusicUrl(best.track);
-    }
-    return null;
+    return data.results.map(song => ({
+      id: song.trackId,
+      title: song.trackName || '',
+      artist: song.artistName || '',
+      album: song.collectionName || '',
+      url: song.trackViewUrl || '',
+      duration: song.trackTimeMillis ? Math.round(song.trackTimeMillis / 1000) : undefined,
+      genre: song.primaryGenreName || '',
+      previewUrl: song.previewUrl || '',
+      albumId: song.collectionId || '',
+    }));
   } catch (error) {
-    console.error('Apple Music mapper error:', error);
-    throw new Error('Failed to map to Apple Music: ' + error.message);
+    console.error('[AppleMusicMapper] iTunes API request error:', error);
+    throw error;
   }
 }
 
-function buildAppleMusicUrl(track) {
-  const trackName = track.trackName || 'Unknown Track';
-  const albumName = track.collectionName || 'Unknown Album';
-  const artistName = track.artistName || 'Unknown Artist';
-  const trackId = track.trackId;
-  const collectionId = track.collectionId;
+export default async function appleMusicMapper(metadata) {
+  try {
+    let { title, artist, duration } = metadata;
+    // Auto-split if title is 'title - artist' and artist is missing
+    if (title && title.includes(' - ') && (!artist || !artist.trim())) {
+      const [possibleTitle, possibleArtist] = title.split(' - ');
+      if (possibleTitle && possibleArtist) {
+        title = possibleTitle.trim();
+        artist = possibleArtist.trim();
+      }
+    }
+    const searchQuery = `${title} ${artist}`;
+    
+    console.log(`[AppleMusicMapper] Searching for: "${title}" by ${artist}`);
+    
+    // Try iTunes Search API (public, no authentication required)
+    let tracks = [];
+    try {
+      tracks = await fetchiTunesSearch(searchQuery, 15);
+      console.log(`[AppleMusicMapper] Found ${tracks.length} results from iTunes API`);
+    } catch (err) {
+      console.log('[AppleMusicMapper] iTunes API search failed:', err.message);
+      return null;
+    }
+    
+    if (tracks.length === 0) {
+      console.log('[AppleMusicMapper] No results found');
+      return null;
+    }
 
-  // Create URL-safe name
-  let urlSafeName = '';
-  if (albumName && albumName !== 'Unknown Album') {
-    urlSafeName = albumName
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
+    // Find the first track that matches title, artist, and duration
+    for (const track of tracks) {
+      const trackTitle = track.title.toLowerCase();
+      const trackArtist = track.artist.toLowerCase();
+      const searchTitle = title.toLowerCase();
+      const searchArtist = artist.toLowerCase();
+      
+      // Check if title and artist match
+      const titleMatch = trackTitle.includes(searchTitle) || searchTitle.includes(trackTitle);
+      const artistMatch = trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist);
+      
+      // Check duration if available (within 5 seconds tolerance)
+      let durationMatch = true;
+      if (duration && track.duration) {
+        const durationDiff = Math.abs(duration - track.duration);
+        durationMatch = durationDiff <= 5;
+      }
+      
+      console.log(`[AppleMusicMapper] Checking: "${track.title}" by ${track.artist}`);
+      console.log(`[AppleMusicMapper] Title match: ${titleMatch}, Artist match: ${artistMatch}, Duration match: ${durationMatch}`);
+      
+      if (titleMatch && artistMatch && durationMatch && track.url) {
+        console.log(`[AppleMusicMapper] Found match: "${track.title}" by ${track.artist}`);
+        return track.url;
+      }
+    }
+
+    console.log('[AppleMusicMapper] No matching track found');
+    return null;
+  } catch (error) {
+    console.error('Apple Music mapper error:', error);
+    return null;
   }
-  if (!urlSafeName && trackName) {
-    urlSafeName = trackName
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-  if (!urlSafeName && artistName) {
-    urlSafeName = artistName
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-  }
-  if (!urlSafeName || urlSafeName.length === 0) {
-    urlSafeName = `track-${trackId}`;
-  }
-  if (collectionId && trackId) {
-    return `https://music.apple.com/us/album/${urlSafeName}/id${collectionId}?i=${trackId}`;
-  } else if (trackId) {
-    return `https://music.apple.com/us/album/${urlSafeName}/id${trackId}`;
-  }
-  return null;
 } 

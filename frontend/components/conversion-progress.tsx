@@ -38,6 +38,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
   const [tracks, setTracks] = useState<TrackProgress[]>([])
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [isActive, setIsActive] = useState(false)
 
   useEffect(() => {
     if (!isOpen || !session) return
@@ -52,6 +53,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
         if (data.error) {
           setError(data.error)
           setCurrentStage("Error occurred")
+          setIsActive(false)
           return
         }
 
@@ -77,6 +79,13 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
           }
         }
 
+        // Set active state based on progress
+        if (data.stage === 'Done' || progress === 100) {
+          setIsActive(false)
+        } else {
+          setIsActive(true)
+        }
+
         // Call parent callback if provided
         if (onProgressUpdate) {
           onProgressUpdate(data)
@@ -85,21 +94,22 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
         // Close connection if done
         if (data.stage === 'Done') {
           eventSource.close()
-          }
+        }
       } catch (err) {
         console.error('Error parsing progress data:', err)
-        }
+      }
     }
 
     eventSource.onerror = (err) => {
       console.error('SSE connection error:', err)
       setError('Lost connection to server')
-      }
+      setIsActive(false)
+    }
 
     return () => {
       eventSource.close()
     }
-  }, [isOpen, session, onProgressUpdate])
+  }, [isOpen, session, onProgressUpdate, progress])
 
   const getStatusIcon = (status: TrackProgress["status"]) => {
     switch (status) {
@@ -136,8 +146,15 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
   const completedTracks = tracks.filter(t => t.status === "success").length
   const failedTracks = tracks.filter(t => t.status === "failed").length
 
+  // Only allow closing if not active or if user explicitly chooses to run in background
+  const handleClose = () => {
+    if (!isActive || progress === 100 || currentStage === "Done" || error) {
+      onClose()
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-hidden p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

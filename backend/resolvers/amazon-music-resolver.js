@@ -1,8 +1,14 @@
+import { resolveAmazonMusicTrack } from '../utils/playlist-scraper.js';
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 
 export default async function amazonMusicResolver(link) {
   try {
+    // If the link is a track page, use the new resolver
+    if (/\/tracks\//.test(link) || /trackAsin=/.test(link)) {
+      return await resolveAmazonMusicTrack(link);
+    }
+    // Fallback: existing logic for albums/playlists
     // Extract Amazon Music track ID from URL
     // Amazon Music URLs can be in formats like:
     // https://music.amazon.com/albums/B082FYL6JF?trackAsin=B082FZFYKD

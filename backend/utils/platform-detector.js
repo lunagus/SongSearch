@@ -91,3 +91,24 @@ export function isAlbum(link) {
   const detail = detectPlatformDetail(link);
   return detail && detail.type === 'album';
 }
+
+/**
+ * Explicit helpers for YouTube links
+ */
+export function isYouTubePlaylist(link) {
+  if (!link || typeof link !== 'string') return false;
+  const url = link.trim();
+  // Accept both www.youtube.com and music.youtube.com playlist links
+  return (
+    /https?:\/\/(www\.|music\.)?youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+/.test(url)
+  );
+}
+
+export function isYouTubeTrack(link) {
+  if (!link || typeof link !== 'string') return false;
+  const url = link.trim();
+  // Accept both www.youtube.com and music.youtube.com track links
+  return (
+    /https?:\/\/(www\.|music\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]+/.test(url)
+  );
+}

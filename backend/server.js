@@ -5,6 +5,54 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import cookieParser from 'cookie-parser';
 
+// Robust .env loading with multiple fallback paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Try multiple possible .env locations
+const possibleEnvPaths = [
+  path.resolve(__dirname, '.env'),                    // /backend/.env
+  path.resolve(__dirname, '..', '.env'),             // /.env (project root)
+  path.resolve(process.cwd(), '.env'),                // Current working directory
+  path.resolve(process.cwd(), 'backend', '.env'),    // Current working directory + backend
+];
+
+let envLoaded = false;
+for (const envPath of possibleEnvPaths) {
+  try {
+    const result = dotenv.config({ path: envPath });
+    if (!result.error) {
+      console.log(`[DEBUG] .env loaded from: ${envPath}`);
+      envLoaded = true;
+      break;
+    }
+  } catch (error) {
+    console.log(`[DEBUG] Failed to load .env from: ${envPath}`);
+  }
+}
+
+if (!envLoaded) {
+  console.warn('[WARNING] No .env file found in any of the expected locations:');
+  possibleEnvPaths.forEach(path => console.warn(`  - ${path}`));
+  console.warn('[WARNING] Using environment variables from system or default values');
+}
+
+// Debug: Verify API key is loaded
+console.log('[DEBUG] BROWSERLESS_API_KEY loaded as:', process.env.BROWSERLESS_API_KEY ? 'YES' : 'NO');
+console.log('[DEBUG] BROWSERLESS_API_KEY length:', process.env.BROWSERLESS_API_KEY?.length || 0);
+console.log('[DEBUG] BROWSERLESS_API_KEY value:', process.env.BROWSERLESS_API_KEY);
+console.log('[DEBUG] BROWSERLESS_API_KEY first 10 chars:', process.env.BROWSERLESS_API_KEY?.substring(0, 10));
+console.log('[DEBUG] BROWSERLESS_API_KEY last 10 chars:', process.env.BROWSERLESS_API_KEY?.substring(-10));
+console.log('[DEBUG] All environment variables starting with BROWSERLESS:', Object.keys(process.env).filter(key => key.startsWith('BROWSERLESS')));
+
+if (!process.env.BROWSERLESS_API_KEY) {
+  console.error('[ERROR] BROWSERLESS_API_KEY not found in environment variables!');
+  console.error('[ERROR] Make sure your .env file exists and contains:');
+  console.error('[ERROR] BROWSERLESS_API_KEY=your_key_here');
+  console.error('[ERROR] Expected .env locations:');
+  possibleEnvPaths.forEach(path => console.error(`  - ${path}`));
+}
+
 import convertRouter from './routes/convert-route.js';
 import searchRouter from './routes/search-route.js';
 import fixRouter from './routes/fix-route.js';
@@ -32,9 +80,6 @@ const conversionResultsMap = new Map(); // key = sessionId, value = { matched, s
 
 // Make userSessions globally accessible for search service
 global.userSessions = userSessions;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Middleware
 app.use(cookieParser());
@@ -233,6 +278,55 @@ app.post('/deezer/validate-arl', async (req, res) => {
   }
 });
 
+// Deezer search endpoint for manual review/fix
+app.post('/deezer/search', async (req, res) => {
+  const { query, session } = req.body;
+  if (!query || !session) {
+    return res.status(400).json({ error: 'Missing query or session' });
+  }
+  const user = userSessions.get(session);
+  if (!user?.arlToken) {
+    return res.status(401).json({ error: 'Deezer ARL token required' });
+  }
+  try {
+    const { DeezerAPI } = await import('@krishna2206/deezer-api');
+    const deezer = new DeezerAPI({ language: 'en', country: 'US' });
+    await deezer.initialize(user.arlToken);
+    const results = await deezer.search(query);
+    res.json({
+      tracks: results.tracks || [],
+      albums: results.albums || [],
+      artists: results.artists || [],
+      playlists: results.playlists || []
+    });
+  } catch (error) {
+    console.error('[DEBUG] Deezer search error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Deezer add-to-playlist endpoint for manual review/fix
+app.post('/deezer/add-to-playlist', async (req, res) => {
+  const { session, playlistId, trackId } = req.body;
+  if (!session || !playlistId || !trackId) {
+    return res.status(400).json({ error: 'Missing session, playlistId, or trackId' });
+  }
+  const user = userSessions.get(session);
+  if (!user?.arlToken) {
+    return res.status(401).json({ error: 'Deezer ARL token required' });
+  }
+  try {
+    const { DeezerAPI } = await import('@krishna2206/deezer-api');
+    const deezer = new DeezerAPI({ language: 'en', country: 'US' });
+    await deezer.initialize(user.arlToken);
+    await deezer.addToPlaylist(trackId, playlistId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[DEBUG] Deezer add-to-playlist error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // SSE endpoint for progress
 app.get('/progress/:session', (req, res) => {
   const session = req.params.session;
@@ -258,7 +352,6 @@ app.get('/progress/:session', (req, res) => {
 app.get('/conversion-results/:session', (req, res) => {
   const session = req.params.session;
   const results = conversionResultsMap.get(session);
-  console.log('[DEBUG] Returning conversionResults for session', session, JSON.stringify(results, null, 2));
   
   if (!results) {
     return res.status(404).json({ error: 'No conversion results found for this session' });
@@ -267,25 +360,25 @@ app.get('/conversion-results/:session', (req, res) => {
   res.json(results);
 });
 
-// Convert single track between platforms
-app.get('/convert-track', async (req, res) => {
-  const { link, targetPlatform } = req.query;
+// Convert single track between platforms (POST, for frontend compatibility)
+app.post('/convert-track', async (req, res) => {
+  const { sourceUrl, targetPlatform, session } = req.body;
 
-  if (!link || !targetPlatform) {
-    return res.status(400).json({ error: 'Missing "link" or "targetPlatform" query parameter' });
+  if (!sourceUrl || !targetPlatform) {
+    return res.status(400).json({ error: 'Missing "sourceUrl" or "targetPlatform" in request body' });
   }
 
-  console.log(`Converting track: ${link} to ${targetPlatform}`);
+  console.log(`Converting track (POST): ${sourceUrl} to ${targetPlatform}`);
 
   try {
     // Extract URL from text that might contain additional content
     const { extractUrlFromText } = await import('./utils/url-extractor.js');
-    const extractedUrl = extractUrlFromText(link);
+    const extractedUrl = extractUrlFromText(sourceUrl);
     
     if (!extractedUrl) {
       return res.status(400).json({ 
         error: 'No valid music platform URL found in the provided text',
-        providedText: link
+        providedText: sourceUrl
       });
     }
 
@@ -300,6 +393,9 @@ app.get('/convert-track', async (req, res) => {
     // Map to target platform
     const { mapToPlatform } = await import('./mappers/mappers.js');
     const targetUrl = await mapToPlatform(metadata, targetPlatform);
+
+    console.log(`[DEBUG] Mapper result for ${targetPlatform}:`, targetUrl);
+    console.log(`[DEBUG] Mapper result type:`, typeof targetUrl);
 
     if (!targetUrl) {
       console.log(`No match found on ${targetPlatform} for: ${metadata.title} - ${metadata.artist}`);
@@ -318,7 +414,7 @@ app.get('/convert-track', async (req, res) => {
       targetPlatform: targetPlatform
     });
   } catch (err) {
-    console.error('Track conversion error:', err);
+    console.error('Track conversion error (POST):', err);
     res.status(500).json({ 
       error: 'Error converting track',
       message: err.message 
@@ -940,8 +1036,10 @@ app.get('/convert-web-playlist', async (req, res) => {
     sourcePlatform = 'applemusic';
   } else if (extractedUrl.includes('deezer.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'deezer';
-  } else if (extractedUrl.includes('youtube.com') || extractedUrl.includes('music.youtube.com')) {
+  } else if (extractedUrl.includes('music.youtube.com') && extractedUrl.includes('playlist')) {
     sourcePlatform = 'ytmusic';
+  } else if (extractedUrl.includes('youtube.com/playlist')) {
+    sourcePlatform = 'youtube';
   }
 
   console.log(`Converting ${sourcePlatform} playlist: ${extractedUrl} to ${targetPlatform}`);
@@ -1019,9 +1117,19 @@ app.get('/convert-web-playlist', async (req, res) => {
           result.requiresAuth = true;
         }
       }
+    } else if (sourcePlatform === 'applemusic') {
+      // Special handling for Apple Music playlists
+      console.log('[DEBUG] Processing Apple Music playlist:', extractedUrl);
+      const { resolvePlaylist } = await import('./resolvers/resolvers.js');
+      result = await resolvePlaylist(extractedUrl);
+      console.log('[DEBUG] Apple Music playlist resolution result:', {
+        success: !result.error,
+        trackCount: result.tracks?.length || 0,
+        error: result.error
+      });
     } else {
       // For other platforms, use the standard resolver
-    const { resolvePlaylist } = await import('./resolvers/resolvers.js');
+      const { resolvePlaylist } = await import('./resolvers/resolvers.js');
       result = await resolvePlaylist(extractedUrl);
     }
     
@@ -1260,27 +1368,14 @@ app.get('/convert-web-playlist', async (req, res) => {
       playlistUrl = result.playlistUrl;
       
       // Store conversion results for Deezer
-      const matchedTracks = result.summary.successful > 0
-        ? tracks.slice(0, result.summary.successful).map(track => ({
-            title: track.title,
-            artist: track.artist,
-            status: 'success'
-          }))
-        : [];
-
-      const skippedTracks = result.summary.errors.map(error => ({
-        title: error.originalTrack.title,
-        artist: error.originalTrack.artist,
-        status: 'failed',
-        reason: error.error
-      }));
-
+      // Deezer mapper returns { matched, mismatched, skipped, playlistUrl, tracks }
+      // This matches the Spotify mapper structure and frontend expectations
       const conversionResults = {
-        matched: matchedTracks,
-        skipped: skippedTracks.map(({ reason, ...rest }) => rest), // keep old structure for skipped
-        mismatched: [],
+        matched: result.matched || [],
+        skipped: result.skipped || [],
+        mismatched: result.mismatched || [],
         playlistUrl: result.playlistUrl,
-        tracks: [...matchedTracks, ...skippedTracks]
+        tracks: result.tracks || []
       };
       
       conversionResultsMap.set(session, conversionResults);

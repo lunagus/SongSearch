@@ -85,6 +85,19 @@ export const TrackResultDisplay = forwardRef<HTMLDivElement, TrackResultDisplayP
 
     const colors = platformColors[result.targetPlatform as keyof typeof platformColors] || platformColors.spotify
 
+    // Extract the targetUrl from the result object
+    const trackUrl = result.targetUrl || '';
+    
+    // Check if this is a search URL (fallback) or direct track URL
+    const isSearchUrl = trackUrl.includes('/search?') || trackUrl.includes('search?keywords=');
+    const isDirectTrackUrl = trackUrl.includes('/track/') || trackUrl.includes('/tracks/') || 
+                            trackUrl.includes('open.spotify.com/track/') || 
+                            trackUrl.includes('music.youtube.com/watch') ||
+                            trackUrl.includes('deezer.com/track/') ||
+                            trackUrl.includes('tidal.com/browse/track/') ||
+                            trackUrl.includes('music.apple.com/us/album/') ||
+                            trackUrl.includes('music.amazon.com/tracks/');
+
     return (
       <Card ref={ref} className={`border-2 border-green-200 dark:border-green-800 bg-green-50/80 dark:bg-green-950/20 backdrop-blur-sm ${className}`}>
         <CardContent className="p-4 sm:p-6">
@@ -95,7 +108,7 @@ export const TrackResultDisplay = forwardRef<HTMLDivElement, TrackResultDisplayP
                   <Music className="h-4 w-4 text-green-600 dark:text-green-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Track Found!
+                  {isSearchUrl ? 'Track Search Available' : 'Track Found!'}
                 </h3>
               </div>
               <div className="space-y-2">
@@ -104,7 +117,7 @@ export const TrackResultDisplay = forwardRef<HTMLDivElement, TrackResultDisplayP
                     <span className="font-medium">Title:</span>
                   </p>
                   <p className="text-base font-bold text-gray-900 dark:text-white">
-                    {result.sourceTrack.title}
+                    {typeof result === 'object' && result.sourceTrack ? result.sourceTrack.title : ''}
                   </p>
                 </div>
                 <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg p-3 border border-green-200 dark:border-green-800">
@@ -112,22 +125,29 @@ export const TrackResultDisplay = forwardRef<HTMLDivElement, TrackResultDisplayP
                     <span className="font-medium">Artist:</span>
                   </p>
                   <p className="text-base font-bold text-gray-900 dark:text-white">
-                    {result.sourceTrack.artist}
+                    {typeof result === 'object' && result.sourceTrack ? result.sourceTrack.artist : ''}
                   </p>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">Found on:</span> {platformNames[result.targetPlatform as keyof typeof platformNames] || result.targetPlatform}
+                  <span className="font-medium">Found on:</span> {typeof result === 'object' && result.targetPlatform ? platformNames[result.targetPlatform as keyof typeof platformNames] || result.targetPlatform : ''}
+                  {isSearchUrl && (
+                    <span className="block mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Direct match not found. Click to search manually.
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
             <Button
-              onClick={() => window.open(result.targetUrl, '_blank', 'noopener,noreferrer')}
+              onClick={() => trackUrl && window.open(trackUrl, '_blank', 'noopener,noreferrer')}
               className={`${colors.bg} ${colors.hover} font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2 ${
-                result.targetPlatform === 'deezer' ? 'text-white' : colors.text
+                typeof result === 'object' && result.targetPlatform === 'deezer' ? 'text-white' : colors.text
               }`}
             >
-              {platformIcons[result.targetPlatform as keyof typeof platformIcons]}
-              <span>Listen on {platformNames[result.targetPlatform as keyof typeof platformNames] || result.targetPlatform}</span>
+              {typeof result === 'object' && result.targetPlatform ? platformIcons[result.targetPlatform as keyof typeof platformIcons] : null}
+              <span>
+                {isSearchUrl ? 'Search on' : 'Listen on'} {typeof result === 'object' && result.targetPlatform ? platformNames[result.targetPlatform as keyof typeof platformNames] || result.targetPlatform : ''}
+              </span>
               <ExternalLink className="h-4 w-4" />
             </Button>
           </div>

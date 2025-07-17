@@ -687,11 +687,11 @@ export default function SongSeekApp() {
     })
 
     try {
-      const result = await convertTrack(trackLink, trackTarget)
+      const result = await convertTrack(trackLink, trackTarget, currentSession || '')
       
-        setIsConverting(false)
+      setIsConverting(false)
 
-      if (result.success) {
+      if (result && result.targetUrl) {
         // Track successful conversion
         trackConversion("completed", {
           conversion_id: conversionId,
@@ -708,6 +708,12 @@ export default function SongSeekApp() {
           targetUrl: result.targetUrl,
           targetPlatform: trackTarget
         })
+        
+        console.log('[DEBUG] Track conversion result set:', {
+          sourceTrack: result.sourceTrack,
+          targetUrl: result.targetUrl,
+          targetPlatform: trackTarget
+        })
 
         // Scroll to the results after a brief delay to ensure the component is rendered
         setTimeout(() => {
@@ -720,16 +726,16 @@ export default function SongSeekApp() {
         throw new Error("Conversion failed: No success response received")
       }
     } catch (err: any) {
-        setIsConverting(false)
+      setIsConverting(false)
 
       // Track failed conversion
       trackConversion("failed", {
-          conversion_id: conversionId,
+        conversion_id: conversionId,
         error: err.message,
-          source_platform: sourcePlatform,
-          target_platform: trackTarget,
-          timestamp: new Date().toISOString(),
-        })
+        source_platform: sourcePlatform,
+        target_platform: trackTarget,
+        timestamp: new Date().toISOString(),
+      })
 
       // Show appropriate error message
       if (err.message.includes("No match found")) {
@@ -807,8 +813,7 @@ export default function SongSeekApp() {
         setCurrentSession(session);
         
         eventSource = listenToProgress(session, (progress) => {
-          // You can update UI with progress here
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         
         conversionResponse = await convertDeezerToSpotify(playlistLink, session);
@@ -829,7 +834,7 @@ export default function SongSeekApp() {
         const playlistId = playlistIdMatch[1];
         
         eventSource = listenToProgress(ytSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         
         conversionResponse = await convertSpotifyToYouTube(playlistId, ytSession, spToken);
@@ -842,7 +847,7 @@ export default function SongSeekApp() {
         setCurrentSession(session);
         
         eventSource = listenToProgress(session, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         
         conversionResponse = await convertYouTubeToSpotify(playlistLink, session);
@@ -855,7 +860,7 @@ export default function SongSeekApp() {
         setCurrentSession(session);
         
         eventSource = listenToProgress(session, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
@@ -870,7 +875,7 @@ export default function SongSeekApp() {
         setCurrentSession(ytSession);
         
         eventSource = listenToProgress(ytSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
@@ -882,7 +887,7 @@ export default function SongSeekApp() {
         if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
         setCurrentSession(deezerSession);
         eventSource = listenToProgress(deezerSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
         setCurrentSession(conversionResponse.session || deezerSession);
@@ -893,7 +898,7 @@ export default function SongSeekApp() {
         if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
         setCurrentSession(deezerSession);
         eventSource = listenToProgress(deezerSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
         setCurrentSession(conversionResponse.session || deezerSession);
@@ -904,7 +909,7 @@ export default function SongSeekApp() {
         if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
         setCurrentSession(deezerSession);
         eventSource = listenToProgress(deezerSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
         setCurrentSession(conversionResponse.session || deezerSession);
@@ -915,7 +920,7 @@ export default function SongSeekApp() {
         if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
         setCurrentSession(session);
         eventSource = listenToProgress(session, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
         // Always use the session you passed in for polling
@@ -927,7 +932,7 @@ export default function SongSeekApp() {
         if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
         setCurrentSession(ytSession);
         eventSource = listenToProgress(ytSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
         setCurrentSession(conversionResponse.session || ytSession);
@@ -938,7 +943,7 @@ export default function SongSeekApp() {
         if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
         setCurrentSession(deezerSession);
         eventSource = listenToProgress(deezerSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
         setCurrentSession(conversionResponse.session || deezerSession);
@@ -949,7 +954,7 @@ export default function SongSeekApp() {
         if (!session) throw new Error("No Spotify session found. Please login to Spotify first.");
         setCurrentSession(session);
         eventSource = listenToProgress(session, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "spotify", session);
         setCurrentSession(conversionResponse.session || session);
@@ -960,7 +965,7 @@ export default function SongSeekApp() {
         if (!ytSession) throw new Error("No YouTube session found. Please login to YouTube first.");
         setCurrentSession(ytSession);
         eventSource = listenToProgress(ytSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "ytmusic", ytSession);
         setCurrentSession(conversionResponse.session || ytSession);
@@ -971,7 +976,7 @@ export default function SongSeekApp() {
         if (!deezerSession) throw new Error("No Deezer session found. Please login to Deezer first.");
         setCurrentSession(deezerSession);
         eventSource = listenToProgress(deezerSession, (progress) => {
-          console.log("Progress:", progress);
+          // Progress updates handled by ConversionProgress component
         });
         conversionResponse = await convertWebPlaylist(playlistLink, "deezer", deezerSession);
         setCurrentSession(conversionResponse.session || deezerSession);
@@ -1079,10 +1084,6 @@ export default function SongSeekApp() {
       // For Deezer, we'll use ARL token instead of OAuth
       const arl = prompt("Please enter your Deezer ARL token:\n\nTo get your ARL token:\n1. Go to https://www.deezer.com and log in\n2. Open Developer Tools (F12)\n3. Go to Application → Cookies → https://www.deezer.com\n4. Copy the value of the 'arl' cookie\n\nNote: Use a test account for safety");
       
-      console.log('[DEBUG] ARL input received:', arl ? 'Yes' : 'No');
-      console.log('[DEBUG] ARL length:', arl?.length);
-      console.log('[DEBUG] ARL preview:', arl?.substring(0, 10) + '...');
-      
       if (arl && arl.trim()) {
         console.log('[DEBUG] Starting ARL validation...');
         
@@ -1110,9 +1111,6 @@ export default function SongSeekApp() {
           })
           .catch((error: any) => {
             console.error('[DEBUG] ARL validation failed with error:', error);
-            console.error('[DEBUG] Error name:', error.name);
-            console.error('[DEBUG] Error message:', error.message);
-            console.error('[DEBUG] Error stack:', error.stack);
             
             toast({
               variant: "destructive",
@@ -1202,6 +1200,43 @@ export default function SongSeekApp() {
   const getLoginPlatformKey = (platformId: string) => {
     if (platformId === "ytmusic") return "youtube";
     return platformId;
+  };
+
+  const handleDeezerLogin = async () => {
+    const arl = prompt("Please enter your Deezer ARL token:");
+    if (!arl || arl.trim() === "") {
+      console.log('[DEBUG] No ARL provided or empty ARL');
+      return;
+    }
+
+    try {
+      console.log('[DEBUG] Starting ARL validation...');
+      const result = await validateDeezerARL(arl);
+      
+      if (result.success) {
+        console.log('[DEBUG] ARL validation successful:', result);
+        localStorage.setItem("deezer_session", result.session);
+        console.log('[DEBUG] Storing Deezer session:', result.session);
+        setLoginStatus(prev => ({ ...prev, deezer: true }));
+        toast({
+          title: "Login Successful",
+          description: `Connected to Deezer as ${result.user.name}`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: result.error || "Failed to validate ARL token",
+        });
+      }
+    } catch (error) {
+      console.error('Deezer login error:', error);
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message || "Failed to connect to Deezer",
+      });
+    }
   };
 
   return (
@@ -1368,56 +1403,29 @@ export default function SongSeekApp() {
                             isLoggedIn ? "opacity-90" : ""
                           }`}
                         >
-                          {isLoggedIn ? (
-                            <>
-                              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                              Connected to {selectedPlatform.name}
-                            </>
-                          ) : (
-                            <>
-                              <span>Connect to {selectedPlatform.name} (ARL)</span>
-                            </>
-                          )}
+                          <div className="flex items-center justify-center gap-3">
+                            {getPlatformIcon(selectedPlatform.id)}
+                            <span>{isLoggedIn ? "Connected" : `Connect to ${selectedPlatform.name}`}</span>
+                          </div>
                         </Button>
                       )
                     }
 
-                    // In the login button rendering logic:
-                    if (["spotify", "ytmusic", "deezer"].includes(selectedPlatform.id)) {
-                      return (
-                        <Button
-                          onClick={() => handleLogin(getLoginPlatformKey(selectedPlatform.id))}
+                    // Standard OAuth flow for other platforms
+                    return (
+                      <Button
+                        onClick={() => handleLogin(getLoginPlatformKey(selectedPlatform.id))}
                         disabled={isLoggedIn}
                         className={`w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl ${selectedPlatform.color} ${selectedPlatform.hoverColor} text-white transition-all duration-200 shadow-lg hover:shadow-xl ${
                           isLoggedIn ? "opacity-90" : ""
                         }`}
                       >
-                        {isLoggedIn ? (
-                          <>
-                            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                            Connected to {selectedPlatform.name}
-                          </>
-                        ) : (
-                          <>
-                              <span>Login to {selectedPlatform.name}</span>
-                          </>
-                        )}
+                        <div className="flex items-center justify-center gap-3">
+                          {getPlatformIcon(selectedPlatform.id)}
+                          <span>{isLoggedIn ? "Connected" : `Connect to ${selectedPlatform.name}`}</span>
+                        </div>
                       </Button>
-                      );
-                    }
-                    // For unsupported platforms, show a disabled button or nothing
-                    if (["applemusic", "tidal", "amazonmusic"].includes(selectedPlatform.id)) {
-                      return (
-                        <Button
-                          disabled
-                          className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold rounded-xl bg-gray-400 text-white opacity-50 cursor-not-allowed"
-                        >
-                          <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
-                          {selectedPlatform.name} Login Unavailable
-                        </Button>
-                      );
-                    }
-                    return null;
+                    )
                   })()}
                 </div>
               </div>
@@ -1425,23 +1433,21 @@ export default function SongSeekApp() {
               {/* Convert Button */}
               <Button
                 onClick={handlePlaylistConvert}
-                className="w-full h-14 sm:h-16 lg:h-20 text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-purple-700 hover:from-purple-700 hover:via-pink-700 hover:to-purple-800 shadow-2xl hover:shadow-3xl rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:brightness-110"
-                disabled={isConverting}
+                disabled={isConverting || !playlistLink.trim()}
+                className="w-full h-12 sm:h-14 lg:h-16 text-base sm:text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isConverting ? (
-                  <>
-                    <Loader2 className="mr-3 sm:mr-4 h-6 w-6 sm:h-7 sm:w-7 animate-spin" />
-                    Converting Playlist...
-                  </>
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+                    <span>Converting...</span>
+                  </div>
                 ) : (
-                  <>
-                    Convert Playlist
-                  </>
+                  <div className="flex items-center gap-3">
+                    <Music className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <span>Convert Playlist</span>
+                  </div>
                 )}
               </Button>
-
-              {/* Drag Drop Zone for Playlist */}
-              <DragDropZone onDrop={handleDrop} className="mt-8 sm:mt-10" />
             </CardContent>
           </Card>
 
@@ -1635,7 +1641,7 @@ export default function SongSeekApp() {
                   setCurrentSession(undefined);
                   return;
                 }
-                console.log("Progress update:", progress);
+                // Progress updates handled silently by ConversionProgress component
               }}
               onViewResults={() => {
                 setShowProgress(false);

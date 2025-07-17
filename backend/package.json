@@ -19,6 +19,7 @@
     "express": "^5.1.0",
     "fuzzball": "^2.2.2",
     "node-fetch": "^3.3.2",
-    "playwright-core": "^1.54.1"
+    "playwright-core": "^1.54.1",
+    "youtubei": "^1.7.0"
   }
 }

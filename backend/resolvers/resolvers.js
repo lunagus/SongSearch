@@ -10,6 +10,7 @@ import tidalResolver from './tidal-resolver.js';
 import amazonMusicResolver from './amazon-music-resolver.js';
 import resolveAmazonMusicPlaylist from './amazon-music-playlist-resolver.js';
 import resolveTidalPlaylist from './tidal-playlist-resolver.js';
+import { isYouTubePlaylist, isYouTubeTrack } from '../utils/platform-detector.js';
 
 export async function resolveMetadata(link) {
   if (link.includes('deezer.com')) {
@@ -18,11 +19,16 @@ export async function resolveMetadata(link) {
   if (link.includes('spotify.com')) {
     return await spotifyResolver(link);
   }
-  if (link.includes('music.youtube.com') || link.includes('youtube.com/playlist')) {
-    return await ytmusicResolver(link);
+  if (isYouTubePlaylist(link)) {
+    // For playlist links, use the playlist resolver
+    const resolveYouTubePlaylist = (await import('./youtube-playlist-scraper.js')).default;
+    return await resolveYouTubePlaylist(link);
   }
-  if (link.includes('youtube.com/watch') && link.includes('v=')) {
+  if (isYouTubeTrack(link)) {
     return await resolveYouTubeVideoInfo(link);
+  }
+  if (link.includes('music.youtube.com')) {
+    return await ytmusicResolver(link);
   }
   if (link.includes('music.apple.com')) {
     return await appleMusicResolver(link);
@@ -37,25 +43,50 @@ export async function resolveMetadata(link) {
 }
 
 export async function resolvePlaylist(link) {
-  if (link.includes('deezer.com')) {
-    return await resolveDeezerPlaylist(link);
+  console.log('[resolvers] Starting playlist resolution for:', link);
+  
+  try {
+    if (link.includes('deezer.com')) {
+      console.log('[resolvers] Using Deezer playlist resolver');
+      return await resolveDeezerPlaylist(link);
+    }
+    if (link.includes('spotify.com')) {
+      console.log('[resolvers] Using Spotify playlist resolver');
+      const resolveSpotifyPlaylist = (await import('./spotify-playlist-resolver.js')).default;
+      return await resolveSpotifyPlaylist(link);
+    }
+    if (isYouTubePlaylist(link)) {
+      console.log('[resolvers] Using YouTube playlist resolver');
+      const resolveYouTubePlaylist = (await import('./youtube-playlist-scraper.js')).default;
+      return await resolveYouTubePlaylist(link);
+    }
+    if (link.includes('music.apple.com') && link.includes('playlist')) {
+      console.log('[resolvers] Using Apple Music playlist resolver');
+      return await resolveAppleMusicPlaylist(link);
+    }
+    if (link.includes('music.amazon.com') && link.includes('playlist')) {
+      console.log('[resolvers] Using Amazon Music playlist resolver');
+      return await resolveAmazonMusicPlaylist(link);
+    }
+    if (link.includes('tidal.com') && link.includes('playlist')) {
+      console.log('[resolvers] Using Tidal playlist resolver');
+      return await resolveTidalPlaylist(link);
+    }
+    throw new Error('Unsupported playlist link format or platform');
+  } catch (error) {
+    console.error('[resolvers] Playlist resolution failed:', error.message);
+    console.error('[resolvers] Error stack:', error.stack);
+    
+    // Return a structured error response
+    return {
+      name: 'Unknown Playlist',
+      tracks: [],
+      error: error.message,
+      debug: {
+        originalUrl: link,
+        errorType: error.constructor.name,
+        timestamp: new Date().toISOString()
+      }
+    };
   }
-  if (link.includes('spotify.com')) {
-    const resolveSpotifyPlaylist = (await import('./spotify-playlist-resolver.js')).default;
-    return await resolveSpotifyPlaylist(link);
-  }
-  if (link.includes('music.youtube.com') || link.includes('youtube.com/playlist')) {
-    const resolveYouTubePlaylist = (await import('./youtube-playlist-scraper.js')).default;
-    return await resolveYouTubePlaylist(link);
-  }
-  if (link.includes('music.apple.com') && link.includes('playlist')) {
-    return await resolveAppleMusicPlaylist(link);
-  }
-  if (link.includes('music.amazon.com') && link.includes('playlist')) {
-    return await resolveAmazonMusicPlaylist(link);
-  }
-  if (link.includes('tidal.com') && link.includes('playlist')) {
-    return await resolveTidalPlaylist(link);
-  }
-  throw new Error('Unsupported playlist link format or platform');
 }

@@ -2,6 +2,28 @@
 
 const API_BASE_URL = "http://127.0.0.1:5000";
 
+// Type definitions
+export interface TrackConversionResult {
+  sourceTrack: {
+    title: string;
+    artist: string;
+  };
+  targetUrl: string;
+  targetPlatform: string;
+}
+
+export interface ConversionResult {
+  matched: Array<{ title: string; artist: string; status: "success" }>;
+  skipped: Array<{ title: string; artist: string; reason: string }>;
+  mismatched: Array<{
+    title: string;
+    artist: string;
+    suggestions: Array<{ title: string; artist: string; id: string }>;
+  }>;
+  playlistUrl?: string;
+  tracks?: Array<any>;
+}
+
 export function getOAuthUrl(platform: string) {
   switch (platform) {
     case "spotify":
@@ -58,28 +80,47 @@ export async function convertYouTubeToDeezer(playlistId: string, ytSession: stri
 }
 
 // Convert single track between platforms
-export async function convertTrack(link: string, targetPlatform: string) {
-  const url = `${API_BASE_URL}/convert-track?link=${encodeURIComponent(link)}&targetPlatform=${encodeURIComponent(targetPlatform)}`;
-  const res = await fetch(url, { method: "GET" });
-  if (!res.ok) {
-    const errorData = await res.json();
-    throw new Error(errorData.message || errorData.error || await res.text());
+export async function convertTrack(sourceUrl: string, targetPlatform: string, session: string): Promise<TrackConversionResult> {
+  const url = `${API_BASE_URL}/convert-track`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sourceUrl,
+      targetPlatform,
+      session
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Track conversion failed: ${errorText}`);
   }
-  const data = await res.json();
+
+  const data = await response.json();
   return data;
 }
 
-export async function getConversionResults(session: string) {
+export async function getConversionResults(session: string): Promise<ConversionResult> {
   const url = `${API_BASE_URL}/conversion-results/${encodeURIComponent(session)}`;
-  const res = await fetch(url, { method: "GET" });
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  console.log('[DEBUG] Fetched conversion results:', data);
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch conversion results: ${errorText}`);
+  }
+
+  const data = await response.json();
   return data;
 }
 
 // Search functionality for mismatched tracks
 export async function searchTracks(platform: string, query: string, limit: number = 5, session?: string) {
+  if (platform === 'deezer') {
+    return await searchDeezerTracks(query, session!);
+  }
   const params = new URLSearchParams({
     query: query,
     limit: limit.toString()
@@ -258,4 +299,28 @@ export async function validateDeezerARL(arl: string) {
   
   console.log('[DEBUG] ARL validation successful:', data);
   return data;
+} 
+
+// Deezer manual search for review/fix
+export async function searchDeezerTracks(query: string, session: string) {
+  const res = await fetch(`${API_BASE_URL}/deezer/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, session })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const data = await res.json();
+  // Return tracks array for compatibility
+  return data.tracks || [];
+}
+
+// Deezer add-to-playlist for manual review/fix
+export async function addDeezerTrackToPlaylist(trackId: string, playlistId: string, session: string) {
+  const res = await fetch(`${API_BASE_URL}/deezer/add-to-playlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ trackId, playlistId, session })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
 } 

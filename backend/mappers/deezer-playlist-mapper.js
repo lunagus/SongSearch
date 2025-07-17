@@ -11,211 +11,229 @@ export async function createDeezerPlaylistWithAPI(arlToken, name, tracks, progre
 
   try {
     // Initialize with ARL token
-    console.log('[DEBUG] Initializing Deezer API with ARL token...');
     const authResult = await deezer.initialize(arlToken);
     
     if (!authResult) {
       throw new Error('Failed to authenticate with Deezer API');
     }
-    
-    console.log('[DEBUG] Deezer API initialized successfully');
-    console.log('[DEBUG] User ID:', deezer.userId);
-    console.log('[DEBUG] User Name:', deezer.userName);
 
-    // Create playlist
-    console.log('[DEBUG] Creating Deezer playlist:', name);
-    console.log('[DEBUG] Playlist description:', `Playlist created by SongSeek - ${new Date().toLocaleDateString()}`);
-    console.log('[DEBUG] Playlist status: 1 (public)');
-    console.log('[DEBUG] Initial trackIds: []');
+    // Create playlist using the correct API method
     
     let playlistId;
-    
     try {
-      const playlistResult = await deezer.createPlaylist(
-        name, 
-        `Playlist created by SongSeek - ${new Date().toLocaleDateString()}`,
-        1, // status: 1 = public
-        [] // empty trackIds array - we'll add tracks one by one
+      
+      // Use the correct createPlaylist method signature
+      playlistId = await deezer.createPlaylist(
+        `🎵 ${name}`, 
+        `Playlist created by SongSeek - ${new Date().toLocaleDateString()}`
       );
       
-      console.log('[DEBUG] Playlist creation result:', playlistResult);
-      console.log('[DEBUG] Playlist result type:', typeof playlistResult);
-      console.log('[DEBUG] Playlist result keys:', playlistResult ? Object.keys(playlistResult) : 'null/undefined');
+    } catch (error) {
       
-      if (!playlistResult) {
-        throw new Error('createPlaylist returned null or undefined');
+      // Check if it's a network/API error
+      if (error.message && error.message.includes('Unexpected end of JSON input')) {
+        console.error('[DEBUG] This appears to be an empty response from Deezer API');
+        console.error('[DEBUG] This could be due to:');
+        console.error('[DEBUG] 1. Invalid ARL token');
+        console.error('[DEBUG] 2. Deezer API rate limiting');
+        console.error('[DEBUG] 3. Network connectivity issues');
+        console.error('[DEBUG] 4. Deezer API changes');
       }
       
-      if (typeof playlistResult === 'string') {
-        // If it returns a string, it might be the playlist ID directly
-        console.log('[DEBUG] createPlaylist returned string, treating as playlist ID:', playlistResult);
-        playlistId = playlistResult;
-        console.log('[DEBUG] Using playlist ID from string:', playlistId);
-      } else if (playlistResult.id) {
-        console.log('[DEBUG] Using playlist ID from object:', playlistResult.id);
-        playlistId = playlistResult.id;
-      } else {
-        console.error('[DEBUG] Playlist result structure:', JSON.stringify(playlistResult, null, 2));
-        throw new Error(`Failed to create playlist - unexpected result structure: ${JSON.stringify(playlistResult)}`);
-      }
-    } catch (playlistError) {
-      console.error('[DEBUG] Error during playlist creation:', playlistError);
-      console.error('[DEBUG] Error name:', playlistError.name);
-      console.error('[DEBUG] Error message:', playlistError.message);
-      console.error('[DEBUG] Error stack:', playlistError.stack);
-      throw new Error(`Failed to create Deezer playlist: ${playlistError.message}`);
+      throw new Error('Failed to create Deezer playlist');
     }
-    
-    console.log('[DEBUG] Created Deezer playlist with ID:', playlistId);
 
-    let successful = 0;
-    let failed = 0;
-    const errors = [];
+    let matched = [];
+    let mismatched = [];
+    let skipped = [];
+    let searched = 0;
 
-    // Process each track
-    for (let i = 0; i < tracks.length; i++) {
-      const track = tracks[i];
-      console.log(`[DEBUG] Processing track ${i + 1}/${tracks.length}: ${track.title} - ${track.artist}`);
-
+    // Process each track with fuzzy matching
+    for (const track of tracks) {
       try {
-        // Search for the track on Deezer
-        const searchQuery = `${track.title} ${track.artist}`;
-        console.log('[DEBUG] Searching for:', searchQuery);
-        
-        const searchResult = await deezer.search(searchQuery);
-        console.log('[DEBUG] Search result:', searchResult);
-        
+        // Search for the track on Deezer using the correct search method
+        const searchResult = await deezer.search(track.title + ' ' + track.artist);
+
         if (searchResult && searchResult.tracks && searchResult.tracks.length > 0) {
           // Convert Deezer search results to candidate format
           const candidates = searchResult.tracks.map(deezerTrack => ({
             id: deezerTrack.id,
             title: deezerTrack.title,
-            artist: deezerTrack.artistString || deezerTrack.artists?.[0]?.name || '',
+            artist: deezerTrack.artist?.name || deezerTrack.artistString || '',
             duration: deezerTrack.duration,
             album: deezerTrack.album?.title || '',
             link: `https://www.deezer.com/track/${deezerTrack.id}`
           }));
-          
-          console.log('[DEBUG] Found', candidates.length, 'candidates');
-          
+
           // Score all candidates using fuzzy matching
           const scored = candidates.map(candidate => {
-            const scores = scoreTrackMatch(track, candidate);
+            const scores = scoreTrackMatch(track, candidate, searched);
             return { ...candidate, ...scores };
           });
-          
+
           // Sort by score (highest first)
           scored.sort((a, b) => b.score - a.score);
-          
-          // Only consider plausible candidates (score > 0.3)
-          const plausibleScored = scored.filter(s => s.score > 0.3);
-          
-          if (plausibleScored.length > 0) {
-            const best = plausibleScored[0];
-            console.log('[DEBUG] Best match:', {
-              title: best.title,
-              artist: best.artist,
-              score: best.score,
-              matchType: best.matchType
-            });
-            
-            // Add track to playlist
-            console.log('[DEBUG] Adding track to playlist:', best.id);
+
+          // Only consider plausible candidates (score > 0.2)
+          const plausibleScored = scored.filter(s => s.score > 0.2);
+          const best = scored[0];
+
+          if (best.matchType === 'perfect') {
+            // Add track to playlist using the correct method
             await deezer.addToPlaylist(best.id, playlistId);
-            console.log('[DEBUG] Successfully added track to playlist');
-            
-            successful++;
-            
+            matched.push({
+              title: track.title,
+              artist: track.artist,
+              status: 'success',
+              deezerId: best.id,
+              link: best.link
+            });
             if (progressCb) {
-              progressCb(successful, { 
-                title: track.title, 
-                artist: track.artist, 
+              progressCb(searched + 1, {
+                title: track.title,
+                artist: track.artist,
                 found: true,
                 deezerTrack: best,
                 matchScore: best.score,
                 matchType: best.matchType
               });
             }
-          } else {
-            console.log('[DEBUG] No plausible matches found for:', searchQuery);
-            console.log('[DEBUG] Best candidate score:', scored[0]?.score || 0);
-            failed++;
-            errors.push({ 
-              originalTrack: track, 
-              error: 'No plausible match found on Deezer',
-              bestCandidate: scored[0] || null
+          } else if (best.matchType === 'partial') {
+            mismatched.push({
+              title: track.title,
+              artist: track.artist,
+              suggestions: plausibleScored.slice(0, 3).map(s => ({
+                id: s.id,
+                title: s.title,
+                artist: s.artist,
+                album: s.album,
+                link: s.link,
+                score: s.score
+              }))
             });
-            
             if (progressCb) {
-              progressCb(successful, { 
-                title: track.title, 
-                artist: track.artist, 
+              progressCb(searched + 1, {
+                title: track.title,
+                artist: track.artist,
                 found: false,
-                bestCandidate: scored[0] || null
+                matchType: best.matchType,
+                suggestions: plausibleScored.slice(0, 3)
+              });
+            }
+          } else {
+            // --- Retry with stripped title ---
+            const strippedTitle = stripVersionTags(track.title);
+            if (strippedTitle !== track.title) {
+              const retrySearchResult = await deezer.search(strippedTitle + ' ' + track.artist);
+              if (retrySearchResult && retrySearchResult.tracks && retrySearchResult.tracks.length > 0) {
+                const retryCandidates = retrySearchResult.tracks.map(deezerTrack => ({
+                  id: deezerTrack.id,
+                  title: deezerTrack.title,
+                  artist: deezerTrack.artist?.name || deezerTrack.artistString || '',
+                  duration: deezerTrack.duration,
+                  album: deezerTrack.album?.title || '',
+                  link: `https://www.deezer.com/track/${deezerTrack.id}`
+                }));
+                const retryScored = retryCandidates.map(candidate => {
+                  const scores = scoreTrackMatch(track, candidate, searched);
+                  return { ...candidate, ...scores };
+                });
+                retryScored.sort((a, b) => b.score - a.score);
+                const plausibleScoredRetry = retryScored.filter(s => s.score > 0.2);
+                if (plausibleScoredRetry.length > 0) {
+                  mismatched.push({
+                    title: track.title,
+                    artist: track.artist,
+                    suggestions: plausibleScoredRetry.slice(0, 3).map(s => ({
+                      id: s.id,
+                      title: s.title,
+                      artist: s.artist,
+                      album: s.album,
+                      link: s.link,
+                      score: s.score
+                    }))
+                  });
+                  if (progressCb) {
+                    progressCb(searched + 1, {
+                      title: track.title,
+                      artist: track.artist,
+                      found: false,
+                      matchType: 'retry-mismatched',
+                      suggestions: plausibleScoredRetry.slice(0, 3)
+                    });
+                  }
+                  continue; // Don't skip, add to manual review
+                }
+              }
+            }
+            // --- End retry ---
+            skipped.push({
+              title: track.title,
+              artist: track.artist,
+              reason: 'No plausible match'
+            });
+            if (progressCb) {
+              progressCb(searched + 1, {
+                title: track.title,
+                artist: track.artist,
+                found: false,
+                reason: 'No plausible match'
               });
             }
           }
         } else {
-          console.log('[DEBUG] No tracks found for:', searchQuery);
-          failed++;
-          errors.push({ 
-            originalTrack: track, 
-            error: 'Track not found on Deezer' 
+          skipped.push({
+            title: track.title,
+            artist: track.artist,
+            reason: 'No candidates found'
           });
-          
           if (progressCb) {
-            progressCb(successful, { 
-              title: track.title, 
-              artist: track.artist, 
-              found: false 
+            progressCb(searched + 1, {
+              title: track.title,
+              artist: track.artist,
+              found: false,
+              reason: 'No candidates found'
             });
           }
         }
       } catch (error) {
-        console.error('[DEBUG] Error processing track:', error.message);
-        failed++;
-        errors.push({ 
-          originalTrack: track, 
-          error: error.message 
+        skipped.push({
+          title: track.title,
+          artist: track.artist,
+          reason: 'Error during search'
         });
-        
         if (progressCb) {
-          progressCb(successful, { 
-            title: track.title, 
-            artist: track.artist, 
-            found: false 
+          progressCb(searched + 1, {
+            title: track.title,
+            artist: track.artist,
+            found: false,
+            reason: 'Error during search'
           });
         }
       }
-
-      // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      searched++;
     }
 
-    console.log('[DEBUG] Deezer playlist creation complete!');
-    console.log('[DEBUG] Summary:', { successful, failed, errors });
-
+    // Build normalized tracks array for frontend
+    const matchedTracks = matched.map(t => ({ ...t, status: 'success' }));
+    const mismatchedTracks = mismatched.map(t => ({ ...t, status: 'mismatched' }));
+    const skippedTracks = skipped.map(t => ({ ...t, status: 'failed' }));
+    
     return {
+      matched,
+      mismatched,
+      skipped,
       playlistUrl: `https://www.deezer.com/playlist/${playlistId}`,
-      playlistId,
-      summary: {
-        successful,
-        failed,
-        errors
-      }
+      tracks: [...matchedTracks, ...mismatchedTracks, ...skippedTracks]
     };
-
   } catch (error) {
-    console.error('[DEBUG] Error in createDeezerPlaylistWithAPI:', error);
-    throw new Error(`Failed to create Deezer playlist: ${error.message}`);
+    console.error('[DEBUG] Deezer playlist creation error:', error);
+    throw error;
   }
 }
 
 // Helper function to validate ARL token
 export async function validateDeezerARL(arlToken) {
-  console.log('[DEBUG] Starting ARL validation...');
-  console.log('[DEBUG] ARL token length:', arlToken?.length);
-  console.log('[DEBUG] ARL token preview:', arlToken?.substring(0, 10) + '...');
   
   // Basic validation
   if (!arlToken || typeof arlToken !== 'string') {
@@ -243,17 +261,13 @@ export async function validateDeezerARL(arlToken) {
     };
   }
 
-  console.log('[DEBUG] ARL format validation passed, initializing Deezer API...');
-  
   const deezer = new DeezerAPI({
     language: 'en',
     country: 'US'
   });
 
   try {
-    console.log('[DEBUG] Calling deezer.initialize()...');
     const authResult = await deezer.initialize(arlToken);
-    console.log('[DEBUG] Authorization result:', authResult);
     
     if (!authResult) {
       console.error('[DEBUG] ARL validation failed: Authorization returned false');
@@ -263,10 +277,6 @@ export async function validateDeezerARL(arlToken) {
       };
     }
     
-    console.log('[DEBUG] Deezer API initialized successfully');
-    console.log('[DEBUG] User ID:', deezer.userId);
-    console.log('[DEBUG] User Name:', deezer.userName);
-    
     if (!deezer.userId || deezer.userId === '0') {
       console.error('[DEBUG] ARL validation failed: No valid user ID returned');
       return {
@@ -275,7 +285,6 @@ export async function validateDeezerARL(arlToken) {
       };
     }
 
-    console.log('[DEBUG] ARL validation successful for user:', deezer.userName || deezer.userId);
     return {
       valid: true,
       user: {
@@ -286,9 +295,6 @@ export async function validateDeezerARL(arlToken) {
     };
   } catch (error) {
     console.error('[DEBUG] ARL validation failed with error:', error);
-    console.error('[DEBUG] Error name:', error.name);
-    console.error('[DEBUG] Error message:', error.message);
-    console.error('[DEBUG] Error stack:', error.stack);
     
     // Provide more specific error messages based on error type
     let errorMessage = 'Unknown error during ARL validation';
@@ -312,4 +318,16 @@ export async function validateDeezerARL(arlToken) {
       error: errorMessage
     };
   }
+} 
+
+// Helper to strip version tags from title
+function stripVersionTags(title) {
+  return title
+    .replace(/\s*-\s*\d{4}\s*Remaster(ed)?/gi, '') // e.g. " - 2011 Remaster"
+    .replace(/\s*\(\d{4}\s*Remaster(ed)?\)/gi, '') // e.g. "(2011 Remaster)"
+    .replace(/\s*Remaster(ed)?/gi, '')
+    .replace(/\s*Live/gi, '')
+    .replace(/\s*\(\s*Live\s*\)/gi, '')
+    .replace(/\s*\d{4}/g, '') // Remove years
+    .trim();
 } 

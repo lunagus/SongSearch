@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckCircle, XCircle, AlertTriangle, Search, ExternalLink, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { searchTracks, applyPlaylistFixes } from "@/lib/api"
+import { searchTracks, applyPlaylistFixes, searchDeezerTracks, addDeezerTrackToPlaylist } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
 interface ConversionResult {
@@ -43,8 +43,6 @@ interface ConversionResultsProps {
 }
 
 export function ConversionResults({ isOpen, onClose, results, session, targetPlatform }: ConversionResultsProps) {
-  // Debug: log the results prop to inspect backend data
-  console.log('[DEBUG] ConversionResults received:', results);
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({})
   const [selectedReplacements, setSelectedReplacements] = useState<Record<string, string>>({})
   const [searchResults, setSearchResults] = useState<Record<string, SearchResult[]>>({})
@@ -80,9 +78,13 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
     setSearchQueries(prev => ({ ...prev, [trackKey]: query }))
 
     try {
-      const results = await searchTracks(targetPlatform, query, 5, session)
+      let results: any[] = [];
+      if (targetPlatform === 'deezer') {
+        results = await searchDeezerTracks(query, session)
+      } else {
+        results = await searchTracks(targetPlatform, query, 5, session)
+      }
       setSearchResults(prev => ({ ...prev, [trackKey]: results }))
-      
       toast({
         description: `Found ${results.length} results for "${query}"`,
       })
@@ -188,6 +190,23 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
     const minutes = Math.floor(duration / 60000)
     const seconds = Math.floor((duration % 60000) / 1000)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  // Add state for add-to-playlist loading
+  const [addingToPlaylist, setAddingToPlaylist] = useState<Record<string, boolean>>({})
+
+  // Add handler for Deezer add-to-playlist
+  const handleAddToDeezerPlaylist = async (trackId: string, trackKey: string) => {
+    if (!playlistUrl || !session) return;
+    setAddingToPlaylist(prev => ({ ...prev, [trackKey]: true }))
+    try {
+      await addDeezerTrackToPlaylist(trackId, playlistUrl.split('/').pop()!, session)
+      toast({ description: 'Track added to Deezer playlist!' })
+    } catch (error) {
+      toast({ variant: 'destructive', description: 'Failed to add track to Deezer playlist' })
+    } finally {
+      setAddingToPlaylist(prev => ({ ...prev, [trackKey]: false }))
+    }
   }
 
   return (
@@ -323,7 +342,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                       </div>
 
                       {/* Search Results */}
-                      {searchResult.length > 0 && (
+                      {targetPlatform === 'deezer' && playlistUrl && searchResult.length > 0 && (
                         <div>
                           <p className="text-sm font-medium mb-2">Search results:</p>
                           <div className="space-y-2">
@@ -341,8 +360,16 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                                   <p className="text-xs text-muted-foreground truncate">{result.artist}</p>
                                   <p className="text-xs text-muted-foreground">{result.album} • {formatDuration(result.duration)}</p>
                                 </div>
-                                <Button size="sm" variant="ghost" onClick={() => window.open(result.url, '_blank')}>
+                                <Button size="sm" variant="ghost" onClick={() => window.open(result.link || result.url, '_blank')}>
                                   <ExternalLink className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={addingToPlaylist[trackKey]}
+                                  onClick={() => handleAddToDeezerPlaylist(result.id, trackKey)}
+                                >
+                                  {addingToPlaylist[trackKey] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add to Playlist'}
                                 </Button>
                               </div>
                             ))}

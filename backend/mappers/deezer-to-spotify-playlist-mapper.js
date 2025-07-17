@@ -95,7 +95,7 @@ export async function createSpotifyPlaylist(token, name, tracks, progressCb, ref
     });
     scored.sort((a, b) => b.score - a.score);
     // Only log/display plausible candidates
-    const plausibleScored = scored.filter(s => s.score > 0.3);
+    const plausibleScored = scored.filter(s => s.score > 0.2);
     const best = scored[0];
     if (best.matchType === 'perfect') {
       console.log('Matched:', best);

@@ -1,50 +1,53 @@
 import fetch from 'node-fetch';
-import { scoreTrackMatch } from '../utils/fuzzyMatcher.js';
 
-export default async function deezerMapper({ title, artist, duration, album }) {
+export default async function deezerMapper({ title, artist, duration }) {
+  console.log('[DEBUG][DeezerMapper] Input:', { title, artist, duration });
   const query = encodeURIComponent(`${title} ${artist}`);
-  const url = `https://api.deezer.com/search/track?q=${query}&limit=5`;
+  const url = `https://api.deezer.com/search/track?q=${query}&limit=10`;
 
-  const response = await fetch(url);
-  const data = await response.json();
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
 
-  if (!data.data || data.data.length === 0) {
-    return [];
+    if (!data.data || data.data.length === 0) {
+      console.log('[DEBUG][DeezerMapper] No results from Deezer API');
+      return null;
+    }
+
+    console.log(`[DeezerMapper] Searching for: "${title}" by ${artist}`);
+    console.log(`[DeezerMapper] Found ${data.data.length} results`);
+
+    // Find the first track that matches title, artist, and duration
+    for (const track of data.data) {
+      const trackTitle = track.title.toLowerCase();
+      const trackArtist = track.artist.name.toLowerCase();
+      const searchTitle = title.toLowerCase();
+      const searchArtist = artist.toLowerCase();
+      
+      // Check if title and artist match
+      const titleMatch = trackTitle.includes(searchTitle) || searchTitle.includes(trackTitle);
+      const artistMatch = trackArtist.includes(searchArtist) || searchArtist.includes(trackArtist);
+      
+      // Check duration if available (within 5 seconds tolerance)
+      let durationMatch = true;
+      if (duration && track.duration) {
+        const durationDiff = Math.abs(duration - track.duration);
+        durationMatch = durationDiff <= 5;
+      }
+      
+      console.log(`[DeezerMapper] Checking: "${track.title}" by ${track.artist.name}`);
+      console.log(`[DeezerMapper] Title match: ${titleMatch}, Artist match: ${artistMatch}, Duration match: ${durationMatch}`);
+      
+      if (titleMatch && artistMatch && durationMatch) {
+        console.log(`[DeezerMapper] Found match: "${track.title}" by ${track.artist.name}`);
+        return track.link;
+      }
+    }
+
+    console.log('[DEBUG][DeezerMapper] No matching track found');
+    return null;
+  } catch (error) {
+    console.error('[DEBUG][DeezerMapper] Error:', error);
+    return null;
   }
-
-  // Convert to candidate format and score them
-  const candidates = data.data.map(track => ({
-    id: track.id,
-    title: track.title,
-    artist: track.artist.name,
-    duration: track.duration, // in seconds
-    album: track.album?.title || '',
-    link: track.link
-  }));
-    
-  // Score all candidates using fuzzy matching
-  const scored = candidates.map(candidate => {
-    const scores = scoreTrackMatch({ title, artist, duration, album }, candidate);
-    return { ...candidate, ...scores };
-  });
-
-  // Sort by score (highest first)
-  scored.sort((a, b) => b.score - a.score);
-    
-  // Only return plausible candidates (score > 0.3)
-  const plausibleCandidates = scored.filter(s => s.score > 0.3);
-
-  console.log('[DEBUG] Deezer search results for:', `${title} - ${artist}`);
-  console.log('[DEBUG] Total candidates:', candidates.length);
-  console.log('[DEBUG] Plausible candidates:', plausibleCandidates.length);
-  if (plausibleCandidates.length > 0) {
-    console.log('[DEBUG] Best match:', {
-      title: plausibleCandidates[0].title,
-      artist: plausibleCandidates[0].artist,
-      score: plausibleCandidates[0].score,
-      matchType: plausibleCandidates[0].matchType
-    });
-  }
-
-  return plausibleCandidates;
 }

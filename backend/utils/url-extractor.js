@@ -1,4 +1,4 @@
-/**
+  /**
  * Extract URLs from text that may contain additional content
  * Supports various music platform URLs and handles text with descriptions, emojis, etc.
  */
@@ -27,8 +27,8 @@ const PLATFORM_PATTERNS = {
     /https?:\/\/listen\.tidal\.com\/(?:browse\/)?(?:track|album|playlist)\/\d+/g
   ],
   amazon: [
-    /https?:\/\/music\.amazon\.com\/(?:albums|playlists)\/[A-Z0-9]+(?:\?[^\s]*)?/g,
-    /https?:\/\/www\.amazon\.com\/music\/player\/(?:tracks|albums|playlists)\/[A-Z0-9]+/g
+    /https?:\/\/music\.amazon\.com\/(?:albums|playlists|user-playlists)\/[A-Za-z0-9]+(?:\?[^\s]*)?/g,
+    /https?:\/\/www\.amazon\.com\/music\/player\/(?:tracks|albums|playlists|user-playlists)\/[A-Za-z0-9]+/g
   ]
 };
 

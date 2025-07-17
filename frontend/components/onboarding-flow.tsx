@@ -23,6 +23,10 @@ import {
   Upload,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select"
+import { DragDropZone } from "@/components/drag-drop-zone"
+import { Loader2 } from "lucide-react"
 
 interface OnboardingStep {
   id: string
@@ -42,6 +46,13 @@ interface OnboardingFlowProps {
 export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowProps) {
   const [currentStep, setCurrentStep] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
+
+  const demoPlaylistLink = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+  const demoPlatforms = [
+    { id: "spotify", name: "Spotify" },
+    { id: "ytmusic", name: "YouTube Music" },
+    { id: "deezer", name: "Deezer" },
+  ]
 
   const steps: OnboardingStep[] = [
     {
@@ -65,7 +76,7 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-4">
               <Badge variant="secondary" className="gap-1">
-                <Music className="h-3 w-3" />7 Platforms
+                <Music className="h-3 w-3" />6 Platforms
               </Badge>
               <Badge variant="secondary" className="gap-1">
                 <CheckCircle className="h-3 w-3" />
@@ -85,46 +96,22 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
       title: "Step 1: Add Your Playlist",
       description: "Paste a playlist link or drag and drop",
       content: (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-md mx-auto">
           <div className="text-center">
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-full mx-auto w-fit mb-4">
-              <Link className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Get Your Playlist Link</h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <h3 className="text-lg font-semibold mb-2">Get Your Playlist Link</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
               Copy a playlist link from any supported platform and paste it here.
             </p>
           </div>
-
-          <Card className="border-2 border-dashed border-blue-300 bg-blue-50/50 dark:bg-blue-950/10">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <Copy className="h-4 w-4 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                </div>
-                <Button size="sm" variant="outline" className="animate-pulse bg-transparent">
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="text-center">
-                <ArrowDown className="h-5 w-5 text-blue-600 mx-auto animate-bounce" />
-                <p className="text-sm text-blue-600 font-medium mt-2">Paste your playlist link here</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-green-600" />
-              <span>Drag & drop supported</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>All major platforms</span>
-            </div>
+          <Input
+            value={demoPlaylistLink}
+            disabled
+            className="h-10 text-sm px-3 rounded-md border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-950/10"
+          />
+          <DragDropZone onDrop={() => {}} className="pointer-events-none opacity-60 scale-95" />
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 justify-center">
+            <Upload className="h-3 w-3" /> Drag & drop supported
+            <CheckCircle className="h-3 w-3 text-green-600 ml-4" /> All major platforms
           </div>
         </div>
       ),
@@ -134,41 +121,30 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
       title: "Step 2: Choose Destination",
       description: "Select where you want your playlist converted",
       content: (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-xs mx-auto">
           <div className="text-center">
-            <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-full mx-auto w-fit mb-4">
-              <MousePointer className="h-8 w-8 text-purple-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Pick Your Platform</h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <h3 className="text-lg font-semibold mb-2">Pick Your Platform</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
               Choose which music service you want to create your new playlist on.
             </p>
           </div>
-
-          <Card className="border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-950/10">
-            <CardContent className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <span className="font-medium">Convert to</span>
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Music className="h-4 w-4" />
-                    <span>Spotify</span>
-                    <ArrowDown className="h-4 w-4 animate-bounce" />
-                  </div>
-                </div>
-                <p className="text-sm text-center text-purple-600 font-medium">
-                  Click the dropdown to see all available platforms
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            {["Spotify", "YouTube", "Apple Music", "Deezer", "Tidal", "Amazon Music"].map((platform) => (
-              <div key={platform} className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                <Music className="h-3 w-3 mx-auto mb-1" />
-                <span>{platform}</span>
-              </div>
+          <Select value="spotify" disabled>
+            <SelectTrigger className="h-10 text-sm rounded-md border-2 border-purple-200 bg-purple-50/50 dark:bg-purple-950/10">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {demoPlatforms.map((platform) => (
+                <SelectItem key={platform.id} value={platform.id} className="text-sm">
+                  {platform.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap gap-2 justify-center mt-2">
+            {demoPlatforms.map((platform) => (
+              <Badge key={platform.id} variant="secondary" className="text-xs px-2 py-1">
+                {platform.name}
+              </Badge>
             ))}
           </div>
         </div>
@@ -179,46 +155,27 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
       title: "Step 3: Connect Your Account",
       description: "Login to access your music library",
       content: (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-xs mx-auto">
           <div className="text-center">
-            <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-full mx-auto w-fit mb-4">
-              <LogIn className="h-8 w-8 text-green-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Secure Authentication</h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <h3 className="text-lg font-semibold mb-2">Secure Authentication</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
               We'll securely connect to your chosen platform to create the new playlist.
             </p>
           </div>
-
-          <Card className="border-2 border-green-200 bg-green-50/50 dark:bg-green-950/10">
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Platform Access</span>
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                    Not Connected
-                  </Badge>
-                </div>
-                <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
-                  <LogIn className="h-4 w-4 mr-2" />
-                  Login to Spotify
-                </Button>
-                <p className="text-xs text-center text-green-600 font-medium">
-                  Click to authenticate with your music platform
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-blue-900 dark:text-blue-100">Secure & Private</p>
-                <p className="text-blue-700 dark:text-blue-300">
-                  We only access what's needed to create your playlist. Your login stays secure.
-                </p>
-              </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium">Platform Access</span>
+            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 text-xs">Not Connected</Badge>
+          </div>
+          <Button className="w-full bg-green-600 hover:bg-green-700 text-white text-sm" disabled>
+            <LogIn className="h-4 w-4 mr-2" /> Login to Spotify
+          </Button>
+          <p className="text-xs text-center text-green-600 font-medium mt-2">
+            Click to authenticate with your music platform
+          </p>
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded-lg mt-2">
+            <div className="flex items-start gap-2">
+              <CheckCircle className="h-4 w-4 text-blue-600 mt-0.5" />
+              <span className="text-xs text-blue-700 dark:text-blue-300">We only access what's needed to create your playlist. Your login stays secure.</span>
             </div>
           </div>
         </div>
@@ -229,47 +186,29 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
       title: "Step 4: Start Converting",
       description: "Watch the magic happen in real-time",
       content: (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-xs mx-auto">
           <div className="text-center">
-            <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-full mx-auto w-fit mb-4">
-              <Play className="h-8 w-8 text-orange-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Intelligent Conversion</h3>
-            <p className="text-gray-600 dark:text-gray-300">
-              Our AI matches your tracks across platforms with high accuracy.
+            <h3 className="text-lg font-semibold mb-2">Intelligent Conversion</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
+              Songseek matches your tracks across platforms with high accuracy.
             </p>
           </div>
-
-          <Card className="border-2 border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <Button className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white">
-                  <Music className="h-5 w-5 mr-2" />
-                  Convert Playlist
-                </Button>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Converting tracks...</span>
-                    <span>75%</span>
-                  </div>
-                  <Progress value={75} className="h-2" />
-                </div>
-                <p className="text-xs text-center text-orange-600 font-medium">
-                  Real-time progress with detailed track information
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>Smart matching</span>
+          <Button className="w-full h-10 text-sm bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white" disabled>
+            <Music className="h-4 w-4 mr-2" /> Convert Playlist
+          </Button>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span>Converting tracks...</span>
+              <span>75%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>Progress tracking</span>
-            </div>
+            <Progress value={75} className="h-1" />
+          </div>
+          <p className="text-xs text-center text-orange-600 font-medium">
+            Real-time progress with detailed track information
+          </p>
+          <div className="flex items-center gap-2 text-xs justify-center mt-2">
+            <CheckCircle className="h-3 w-3 text-green-600" /> Smart matching
+            <CheckCircle className="h-3 w-3 text-green-600 ml-4" /> Progress tracking
           </div>
         </div>
       ),
@@ -279,46 +218,36 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
       title: "Step 5: Review & Fix",
       description: "See results and manually fix any issues",
       content: (
-        <div className="space-y-6">
+        <div className="space-y-4 max-w-xs mx-auto">
           <div className="text-center">
-            <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-full mx-auto w-fit mb-4">
-              <CheckCircle className="h-8 w-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Conversion Complete!</h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <h3 className="text-lg font-semibold mb-2">Conversion Complete!</h3>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
               Review matched tracks and manually fix any that need attention.
             </p>
           </div>
-
           <Card className="border-2 border-blue-200 bg-blue-50/50 dark:bg-blue-950/10">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4 mb-4">
+            <CardContent className="p-2">
+              <div className="grid grid-cols-3 gap-2 mb-2">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">24</div>
+                  <div className="text-lg font-bold text-green-600">24</div>
                   <div className="text-xs text-gray-600">Matched</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">2</div>
+                  <div className="text-lg font-bold text-yellow-600">2</div>
                   <div className="text-xs text-gray-600">Review</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">92%</div>
+                  <div className="text-lg font-bold text-blue-600">92%</div>
                   <div className="text-xs text-gray-600">Success</div>
                 </div>
               </div>
               <p className="text-xs text-center text-blue-600 font-medium">Detailed results with manual fix options</p>
             </CardContent>
           </Card>
-
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded-lg">
-            <div className="flex items-start gap-3">
-              <Sparkles className="h-5 w-5 text-green-600 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-medium text-green-900 dark:text-green-100">Pro Tip</p>
-                <p className="text-green-700 dark:text-green-300">
-                  For tracks that couldn't be matched, you can search manually or choose from suggestions.
-                </p>
-              </div>
+          <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-green-600 mt-0.5" />
+              <span className="text-xs text-green-700 dark:text-green-300">For tracks that couldn't be matched, you can search manually or choose from suggestions.</span>
             </div>
           </div>
         </div>
@@ -339,7 +268,7 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
             </div>
           </div>
           <div className="space-y-4">
-            <h3 className="text-2xl font-bold">Ready to Rock! 🚀</h3>
+            <h3 className="text-2xl font-bold">Ready to Go! 🚀</h3>
             <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed">
               You now know how to convert playlists like a pro. Start with your favorite playlist and watch the magic
               happen!
@@ -348,12 +277,12 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
               <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
                 <Music className="h-6 w-6 text-blue-600 mx-auto mb-2" />
                 <p className="text-sm font-medium">Smart Matching</p>
-                <p className="text-xs text-gray-600">AI-powered track detection</p>
+                <p className="text-xs text-gray-600">Powerful and robust track detection</p>
               </div>
               <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
                 <CheckCircle className="h-6 w-6 text-green-600 mx-auto mb-2" />
                 <p className="text-sm font-medium">High Success Rate</p>
-                <p className="text-xs text-gray-600">90%+ match accuracy</p>
+                <p className="text-xs text-gray-600">85%+ match accuracy</p>
               </div>
             </div>
           </div>
@@ -403,9 +332,6 @@ export function OnboardingFlow({ isOpen, onClose, onComplete }: OnboardingFlowPr
               <DialogTitle className="text-left">{steps[currentStep].title}</DialogTitle>
               <DialogDescription className="text-left">{steps[currentStep].description}</DialogDescription>
             </DialogHeader>
-            <Button variant="ghost" size="icon" onClick={handleSkip} className="shrink-0">
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Progress */}
