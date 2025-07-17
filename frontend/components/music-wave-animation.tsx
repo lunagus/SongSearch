@@ -14,12 +14,10 @@ export function MusicWaveAnimation({ className }: MusicWaveAnimationProps) {
   useEffect(() => {
     // Responsive bar count
     function updateBarCount() {
-      if (window.innerWidth >= 1280) {
-        setBarCount(48)
-      } else if (window.innerWidth >= 768) {
-        setBarCount(36)
+      if (window.innerWidth >= 768) {
+        setBarCount(26)
       } else {
-        setBarCount(24)
+        setBarCount(18);
       }
     }
     updateBarCount()
