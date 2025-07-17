@@ -155,7 +155,7 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-8">
+      <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-8 lg:p-12">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 min-w-0">
             <Music className="h-5 w-5 shrink-0" />
@@ -191,22 +191,27 @@ export function ConversionProgress({ isOpen, onClose, session, onProgressUpdate,
                   {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 mt-4 max-h-80 sm:max-h-96 overflow-y-auto overflow-x-auto">
+              <CollapsibleContent className="space-y-2 mt-4 max-h-80 sm:max-h-96 overflow-y-auto overflow-x-auto w-full">
                 {tracks.map((track, index) => (
                   <div
                     key={index}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors min-w-0 ${
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors min-w-0 w-full max-w-full ${
                       index === currentTrackIndex && track.status === "processing"
                         ? "bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
-                        : "bg-gray-50 dark:bg-gray-800"
+                        : "bg-white dark:bg-gray-900/60 border-gray-200 dark:border-gray-800"
                     }`}
                   >
                     {getStatusIcon(track.status)}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{track.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+                    <div className="flex-1 min-w-0 w-full max-w-full">
+                      <p className="font-medium truncate w-full max-w-full">{track.title}</p>
+                      <p className="text-sm text-muted-foreground truncate w-full max-w-full">{track.artist}</p>
+                      {track.error && (
+                        <p className="text-xs text-red-600 mt-1 truncate w-full max-w-full">{track.error}</p>
+                      )}
                     </div>
-                    {getStatusBadge(track.status)}
+                    <div className="flex-shrink-0">
+                      {getStatusBadge(track.status)}
+                    </div>
                   </div>
                 ))}
               </CollapsibleContent>

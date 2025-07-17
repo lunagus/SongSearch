@@ -9,29 +9,43 @@ interface MusicWaveAnimationProps {
 
 export function MusicWaveAnimation({ className }: MusicWaveAnimationProps) {
   const [bars, setBars] = useState<number[]>([])
+  const [barCount, setBarCount] = useState(24)
+
+  useEffect(() => {
+    // Responsive bar count
+    function updateBarCount() {
+      if (window.innerWidth >= 1280) {
+        setBarCount(48)
+      } else if (window.innerWidth >= 768) {
+        setBarCount(36)
+      } else {
+        setBarCount(24)
+      }
+    }
+    updateBarCount()
+    window.addEventListener('resize', updateBarCount)
+    return () => window.removeEventListener('resize', updateBarCount)
+  }, [])
 
   useEffect(() => {
     // Generate random bar heights for the wave effect
     const generateBars = () => {
-      const newBars = Array.from({ length: 24 }, () => 
+      const newBars = Array.from({ length: barCount }, () => 
         Math.random() * 0.6 + 0.2 // Random height between 0.2 and 0.8
       )
       setBars(newBars)
     }
 
     generateBars()
-    
-    // Update bars periodically for subtle animation
     const interval = setInterval(() => {
       generateBars()
-    }, 2000) // Update every 2 seconds
-
+    }, 2000)
     return () => clearInterval(interval)
-  }, [])
+  }, [barCount])
 
   return (
-    <div className={cn("absolute inset-0 overflow-hidden pointer-events-none", className)}>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 opacity-20">
+    <div className={cn("absolute inset-0 overflow-hidden pointer-events-none flex justify-center w-full max-w-3xl mx-auto", className)}>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 opacity-20 w-full">
         {bars.map((height, index) => (
           <div
             key={index}

@@ -71,7 +71,7 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
     playlistUrl = (results.playlistUrl as any).playlistUrl;
   }
 
-  const handleManualSearch = async (trackKey: string, query: string) => {
+  const handleManualSearch = async (trackKey: string, query: string, track?: any) => {
     if (!query.trim() || !session || !targetPlatform) return
 
     setIsSearching(prev => ({ ...prev, [trackKey]: true }))
@@ -79,14 +79,19 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
 
     try {
       let results: any[] = [];
+      let searchQuery = query;
+      // For Spotify, if this is a mismatched track, search by just the title
+      if (targetPlatform === 'spotify' && track && track.status === 'mismatched') {
+        searchQuery = track.title;
+      }
       if (targetPlatform === 'deezer') {
-        results = await searchDeezerTracks(query, session)
+        results = await searchDeezerTracks(searchQuery, session)
       } else {
-        results = await searchTracks(targetPlatform, query, 5, session)
+        results = await searchTracks(targetPlatform, searchQuery, 5, session)
       }
       setSearchResults(prev => ({ ...prev, [trackKey]: results }))
       toast({
-        description: `Found ${results.length} results for "${query}"`,
+        description: `Found ${results.length} results for "${searchQuery}"`,
       })
     } catch (error) {
       console.error('Search error:', error)
@@ -324,13 +329,13 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                           className="flex-1"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
-                              handleManualSearch(trackKey, searchQueries[trackKey] || "")
+                              handleManualSearch(trackKey, searchQueries[trackKey] || "", track)
                             }
                           }}
                         />
                         <Button 
                           size="sm" 
-                          onClick={() => handleManualSearch(trackKey, searchQueries[trackKey] || "")}
+                          onClick={() => handleManualSearch(trackKey, searchQueries[trackKey] || "", track)}
                           disabled={isSearchingTrack}
                         >
                           {isSearchingTrack ? (
@@ -341,8 +346,8 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                         </Button>
                       </div>
 
-                      {/* Search Results */}
-                      {targetPlatform === 'deezer' && playlistUrl && searchResult.length > 0 && (
+                      {/* Search Results (now for all platforms) */}
+                      {searchResult.length > 0 && (
                         <div>
                           <p className="text-sm font-medium mb-2">Search results:</p>
                           <div className="space-y-2">
@@ -363,14 +368,16 @@ export function ConversionResults({ isOpen, onClose, results, session, targetPla
                                 <Button size="sm" variant="ghost" onClick={() => window.open(result.link || result.url, '_blank')}>
                                   <ExternalLink className="h-3 w-3" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  disabled={addingToPlaylist[trackKey]}
-                                  onClick={() => handleAddToDeezerPlaylist(result.id, trackKey)}
-                                >
-                                  {addingToPlaylist[trackKey] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add to Playlist'}
-                                </Button>
+                                {targetPlatform === 'deezer' && playlistUrl && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                    disabled={addingToPlaylist[trackKey]}
+                                    onClick={() => handleAddToDeezerPlaylist(result.id, trackKey)}
+                                  >
+                                    {addingToPlaylist[trackKey] ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add to Playlist'}
+                                  </Button>
+                                )}
                               </div>
                             ))}
                           </div>

@@ -158,12 +158,10 @@ export function scoreTrackMatch({ title, artist, duration, album }, candidate, d
   // Apply new threshold logic
   if (finalResult.score >= 0.7) {
     finalResult.matchType = 'perfect';
-  } else if (finalResult.score >= 0.3) {
-    finalResult.matchType = 'partial';
   } else if (finalResult.score >= 0.1) {
-    finalResult.matchType = 'partial'; // Still partial for manual review
+    finalResult.matchType = 'partial'; // All scores >= 0.1 and < 0.7 are partial (manual review)
   } else {
-    finalResult.matchType = 'none';
+    finalResult.matchType = 'none'; // Only scores < 0.1 are skipped
   }
 
   return finalResult;

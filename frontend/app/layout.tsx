@@ -36,6 +36,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/songseek.svg" />
+        <link rel="alternate icon" href="/songseek.ico" />
+        <link rel="apple-touch-icon" href="/songseek.svg" />
+      </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           {children}
