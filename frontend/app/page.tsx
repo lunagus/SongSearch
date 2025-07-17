@@ -1246,7 +1246,7 @@ export default function SongSeekApp() {
         {/* Main Header Content - Centered */}
         <div className="text-center mb-8 sm:mb-12 relative min-h-[200px] sm:min-h-[250px]">
           {/* Controls - Overlay on top-right (Desktop Only) */}
-          <div className="absolute top-0 right-0 hidden sm:flex items-center gap-3 sm:gap-4 z-20">
+          <div className="absolute top-0 right-0 hidden md888:flex items-center gap-3 sm:gap-4 z-20">
             {/* Help Button */}
             <Button
               variant="outline"
@@ -1279,7 +1279,7 @@ export default function SongSeekApp() {
             </div>
             <div className="space-y-2 sm:space-y-3">
               <p className="text-lg sm:text-xl lg:text-2xl text-gray-500 dark:text-gray-400 font-medium">
-                Convert music playlists between platforms seamlessly
+                Convert your music between platforms seamlessly
               </p>
             </div>
           </div>
@@ -1321,7 +1321,7 @@ export default function SongSeekApp() {
                     Convert Playlist
                   </CardTitle>
                   <CardDescription className="text-base sm:text-lg text-gray-600 dark:text-gray-300 mt-2 sm:mt-3">
-                    Transform your entire music collection between platforms with intelligent matching
+                    Transform entire music collections between platforms with intelligent matching
                   </CardDescription>
                 </div>
               </div>
@@ -1461,7 +1461,7 @@ export default function SongSeekApp() {
                 </div>
                 <div>
                   <CardTitle className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                    Convert Single Track
+                    Convert Track
                   </CardTitle>
                   <CardDescription className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                     Quick conversion for individual songs
@@ -1689,7 +1689,7 @@ export default function SongSeekApp() {
       {/* Footer */}
       <footer className="border-t bg-gradient-to-r from-gray-50/50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50 py-8 text-sm text-gray-600 dark:text-gray-400 text-center mt-12 sm:mt-16">
         {/* Mobile Controls */}
-        <div className="flex items-center justify-center gap-3 mb-6 sm:hidden">
+        <div className="flex items-center justify-center gap-3 mb-6 md888:hidden">
           {/* Help Button */}
           <Button
             variant="outline"

@@ -12,6 +12,9 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		screens: {
+  			'md888': '888px',
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
